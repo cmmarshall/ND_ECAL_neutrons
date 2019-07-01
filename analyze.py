@@ -6,6 +6,7 @@ import os
 import ROOT
 from optparse import OptionParser
 from array import array
+from math import sqrt
 
 MAXCANDIDATES = 1000
 
@@ -35,6 +36,7 @@ class NeutronCandidate:
     def __init__(self, tid, pdg, ke):
         self.intpt = None
         self.inttime = None
+        self.hits = []
         self.energy = 0.
         self.tid = tid
         self.cells = {}
@@ -42,8 +44,9 @@ class NeutronCandidate:
         self.truePDG = pdg
         self.trueKE = ke
 
-    def addHit(self, pos, volName, hEnergy, hTime):
+    def addHit(self, pos, volName, hEnergy, hTime, parent):
         self.nhits += 1
+        self.hits.append([pos, parent ])
 
         if volName not in self.cells:
             self.cells[volName] = hEnergy
@@ -61,6 +64,9 @@ class NeutronCandidate:
             self.intpt = pos*hEnergy
         else:
             self.intpt += pos*hEnergy # energy-weighted average
+
+    def getHits(self):
+        return self.hits
 
     def getPos(self):
         return (1./self.energy) * self.intpt
@@ -97,6 +103,24 @@ class NeutronCandidate:
     def printNC(self):
         print "  Neutron candidate from track ID %d at time %1.1f" % (self.tid, self.inttime)
         print "     %d hits on %d cells, total energy %1.1f MeV, centroid (%1.1f, %1.1f, %1.1f)" % (self.nhits, len(self.cells), self.energy, self.intpt.x()/self.energy, self.intpt.y()/self.energy, self.intpt.z()/self.energy)
+
+
+
+
+
+
+def isinCluster(candidate, cluster, thresh):
+    #candidate should be a T3Vector
+    #cluster is a NeutronCandidate object
+    hits = cluster.getHits()
+    for hit in hits:
+        diff = hit[0] - candidate
+        distance = sqrt(diff.dot(diff))
+        if distance <= thresh:
+            return True
+    return False
+
+
 
 def setToBogus():
     t_run[0] = 0
@@ -143,7 +167,7 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
-def loop( events, tgeo, tree ):
+def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
 
     offset = [ 0., 305., 5. ]
 
@@ -166,7 +190,7 @@ def loop( events, tgeo, tree ):
             t_vtxZ[0] = vertex.Position.Z()/10. #vertex.GetPosition().Z()/10.
             # atomic mass of target
             t_vtxA[0] = int((reaction.split(";")[1].split(":")[1])[6:9])
-            
+
             #node = tgeo.FindNode( vertex.Position[0], vertex.Position[1], vertex.Position[2] )
             #print "Interaction vertex in %s at (%1.1f, %1.1f, %1.1f)" % (node.GetName(), vertex.Position[0]/10., vertex.Position[1]/10., vertex.Position[2]/10.)
 
@@ -186,14 +210,51 @@ def loop( events, tgeo, tree ):
 
             # Get ECal hits
             ecal_hits = []
-            for det in event.SegmentDetectors: 
+            for det in event.SegmentDetectors:
                 if "ECal" in det.first: # there are several sub-detectors that make up the ECal
                     ecal_hits += det.second
 
+            candidates = []
+            for hit in ecal_hits:
+                if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
+                    continue
+
+                hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
+                hStop = ROOT.TVector3( hit.Stop.X()/10., hit.Stop.Y()/10., hit.Stop.Z()/10. )
+
+                #Truth-match the hits
+                #neutral_tid = -1
+                parent = None; neutral_tid = -1
+                for i in range(len(hit.Contrib)):
+                    tid = hit.Contrib[i]
+                    photon_tid = photonParent(event, tid); neutron_tid = neutronParent( event, tid )
+                    if neutron_tid > 0:
+                        parent = 'n'; neutral_tid = neutron_tid
+                    else:
+                        if photon_tid > 1:
+                            parent = 'g'; neutral_tid = photon_tid
+                        else:
+                            parent = None; neutral_tid = photon_tid
+
+                    if parent is not None:
+                        inCluster = False
+                        for cluster in candidates:
+                            if isinCluster(hStart, cluster, Cluster_Threshold) and not inCluster:
+                                cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent)
+                                inCluster = True
+                        if not inCluster:
+                            truePDG = event.Trajectories[neutral_tid].PDGCode
+                            mom = event.Trajectories[neutral_tid].InitialMomentum
+                            c = NeutronCandidate(neutral_tid, truePDG, mom.E()-mom.M())
+                            c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent)
+                            candidates.append(c)
+
+
+            """
             candidates = {}
             for hit in ecal_hits:
 
-                if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
+                if hit.EnergyDeposit < 0.01: # skip tiny deposits,if this cut needs to be tuned
                     continue
 
                 #hStart = ROOT.TVector3( hit.GetStart().X()/10., hit.GetStart().Y()/10., hit.GetStart().Z()/10. )
@@ -227,10 +288,10 @@ def loop( events, tgeo, tree ):
                     node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                     #print "  adding hit to tid %d: (%1.1f, %1.1f, %1.1f), %s, %1.2f MeV, time = %1.2f" % (neutral_tid, hStart.x(), hStart.y(), hStart.z(), node.GetName(), hit.EnergyDeposit, hit.Start[3])
                     candidates[neutral_tid].addHit( hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3] )
-
+            """;
             t_nCandidates[0] = 0
-            for key in candidates:
-                isPrimary = (event.Trajectories[key].ParentId == -1)
+            for key in range(len(candidates)):
+                #isPrimary = (event.Trajectories[key].ParentId == -1)
                 t_nPosX[t_nCandidates[0]] = candidates[key].getPos().x()
                 t_nPosY[t_nCandidates[0]] = candidates[key].getPos().y()
                 t_nPosZ[t_nCandidates[0]] = candidates[key].getPos().z()
@@ -317,7 +378,3 @@ if __name__ == "__main__":
     loop( events, tgeo, tree )
     fout.cd()
     tree.Write()
-
-
-
-
