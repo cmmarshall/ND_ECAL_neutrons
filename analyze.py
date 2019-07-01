@@ -7,6 +7,7 @@ import ROOT
 from optparse import OptionParser
 from array import array
 from math import sqrt
+import numpy as np
 
 MAXCANDIDATES = 1000
 
@@ -44,9 +45,9 @@ class NeutronCandidate:
         self.truePDG = pdg
         self.trueKE = ke
 
-    def addHit(self, pos, volName, hEnergy, hTime, parent):
+    def addHit(self, pos, volName, hEnergy, hTime, parent, neutral_tid):
         self.nhits += 1
-        self.hits.append([pos, parent ])
+        self.hits.append([pos, parent, neutral_tid])
 
         if volName not in self.cells:
             self.cells[volName] = hEnergy
@@ -103,9 +104,6 @@ class NeutronCandidate:
     def printNC(self):
         print "  Neutron candidate from track ID %d at time %1.1f" % (self.tid, self.inttime)
         print "     %d hits on %d cells, total energy %1.1f MeV, centroid (%1.1f, %1.1f, %1.1f)" % (self.nhits, len(self.cells), self.energy, self.intpt.x()/self.energy, self.intpt.y()/self.energy, self.intpt.z()/self.energy)
-
-
-
 
 
 
@@ -246,7 +244,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             truePDG = event.Trajectories[neutral_tid].PDGCode
                             mom = event.Trajectories[neutral_tid].InitialMomentum
                             c = NeutronCandidate(neutral_tid, truePDG, mom.E()-mom.M())
-                            c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent)
+                            c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
 
@@ -292,6 +290,10 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
             t_nCandidates[0] = 0
             for key in range(len(candidates)):
                 #isPrimary = (event.Trajectories[key].ParentId == -1)
+                #for hit in candidate[key].getHits():
+                neutral_tids = list(np.array(candidate[key].getHits())[:,2])
+                largestContrib = max(set(neutral_tids), key=neutral_tids.count)
+                isPrimary = (event.Trajectories[largestContrib].ParentId == -1)
                 t_nPosX[t_nCandidates[0]] = candidates[key].getPos().x()
                 t_nPosY[t_nCandidates[0]] = candidates[key].getPos().y()
                 t_nPosZ[t_nCandidates[0]] = candidates[key].getPos().z()
