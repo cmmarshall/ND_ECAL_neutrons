@@ -106,6 +106,34 @@ class NeutronCandidate:
         print "     %d hits on %d cells, total energy %1.1f MeV, centroid (%1.1f, %1.1f, %1.1f)" % (self.nhits, len(self.cells), self.energy, self.intpt.x()/self.energy, self.intpt.y()/self.energy, self.intpt.z()/self.energy)
 
 
+def GetPurityData(candidates):
+    output1 = []
+    for cluster in candidates:
+        No_of_NParents = 0; No_of_GParents = 0
+        neutral_tids = []; hits = cluster.getHits()
+        for hit in hits:
+            if hit[1] == 'n':
+                No_of_NParents+=1
+            if hit[1] == 'g':
+                No_of_GParents+=1
+            neutral_tids.append(hit[2])
+        neutral_tids = sorted(neutral_tids)
+        occurances = []; oc = 1; prev_val = neutral_tids[0]
+        for i in range(1, len(neutral_tids)):
+            if neutral_tid[i] != prev_val:
+                occurances.append(oc); prev_val = neutral_tid[i]
+                oc = 1
+            else:
+                oc+=1
+        occurances.append(oc)
+        output2.append(max(occurances)/len(occurances))
+        output1.append(max(No_of_GParents, No_of_NParents)/(No_of_GParents + No_of_NParents))
+    np.save('Purity_NvG.npy', output1 )
+    np.save('Purity_ParentTID.npy', output2)
+
+
+
+
 
 def isinCluster(candidate, cluster, thresh):
     #candidate should be a T3Vector
@@ -248,6 +276,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             candidates.append(c)
 
 
+
             """
             candidates = {}
             for hit in ecal_hits:
@@ -313,6 +342,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                     break
 
             tree.Fill()
+
 
 if __name__ == "__main__":
 
