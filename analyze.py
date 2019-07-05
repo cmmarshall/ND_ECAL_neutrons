@@ -275,7 +275,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-
+           GetPurityData(candidates) 
 
             """
             candidates = {}
@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
     parser = OptionParser()
     parser.add_option('--outfile', help='Output file name', default="out.root")
-    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep")
+    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep/FHC/GArTPC/")
     parser.add_option('--first_run', type=int, help='First run number', default=0)
     parser.add_option('--last_run', type=int, help='Last run number', default=0)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
