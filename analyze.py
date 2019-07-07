@@ -107,6 +107,7 @@ class NeutronCandidate:
 
 
 def GetPurityData(candidates):
+    import csv
     output1 = []
     for cluster in candidates:
         No_of_NParents = 0; No_of_GParents = 0
@@ -128,8 +129,18 @@ def GetPurityData(candidates):
         occurances.append(oc)
         output2.append(max(occurances)/len(occurances))
         output1.append(max(No_of_GParents, No_of_NParents)/(No_of_GParents + No_of_NParents))
-    np.save('Purity_NvG.npy', output1 )
-    np.save('Purity_ParentTID.npy', output2)
+    with open('Purity_NvG.csv', 'w') as writeFile:
+        writer = csv.writer(writeFile)
+        for thing in output1:
+            writer.writerow([thing])
+    with open('Purity_ParentTID.csv', 'w') as writeFile:
+        writer = csv.writer(writeFile)
+        for thing in output2:
+            writer.writerow([thing])
+
+
+    #np.save('Purity_NvG.npy', output1 )
+    #np.save('Purity_ParentTID.npy', output2)
 
 
 
@@ -275,7 +286,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-           GetPurityData(candidates) 
+           GetPurityData(candidates)
 
             """
             candidates = {}
@@ -320,7 +331,9 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
             for key in range(len(candidates)):
                 #isPrimary = (event.Trajectories[key].ParentId == -1)
                 #for hit in candidate[key].getHits():
-                neutral_tids = list(np.array(candidate[key].getHits())[:,2])
+
+                neutral_tids = list([thing[2] for thing in candidate[key].getHits()])
+                #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
                 largestContrib = max(set(neutral_tids), key=neutral_tids.count)
                 isPrimary = (event.Trajectories[largestContrib].ParentId == -1)
                 t_nPosX[t_nCandidates[0]] = candidates[key].getPos().x()
