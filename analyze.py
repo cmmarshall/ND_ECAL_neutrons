@@ -363,7 +363,7 @@ if __name__ == "__main__":
 
     parser = OptionParser()
     parser.add_option('--outfile', help='Output file name', default="out.root")
-    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep/FHC/GArTPC/")
+    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep/FHC/GArTPC")
     parser.add_option('--first_run', type=int, help='First run number', default=0)
     parser.add_option('--last_run', type=int, help='Last run number', default=0)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
