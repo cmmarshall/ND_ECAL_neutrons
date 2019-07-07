@@ -7,7 +7,7 @@ import ROOT
 from optparse import OptionParser
 from array import array
 from math import sqrt
-import numpy as np
+#import numpy as np
 
 MAXCANDIDATES = 1000
 
@@ -286,7 +286,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-           GetPurityData(candidates)
+            GetPurityData(candidates)
 
             """
             candidates = {}
