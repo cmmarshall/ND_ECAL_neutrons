@@ -109,7 +109,7 @@ class NeutronCandidate:
 def GetPurityData(candidates, No):
     import csv
     output1 = []; output2 = [];
-	
+
 #    print('Number of Clusters:%d'%(len(candidates)))
     for cluster in candidates:
         No_of_NParents = 0; No_of_GParents = 0
@@ -218,7 +218,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
     for ient in range(N):
         if ient % 10 == 0:
             print "Event %d of %d..." % (ient,N)
-	
+
 	if ient > 100:
            sys.exit()
 
@@ -294,7 +294,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-            GetPurityData(candidates, ient )
+            #GetPurityData(candidates, ient )
 
             """
             candidates = {}
