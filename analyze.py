@@ -7,6 +7,7 @@ import ROOT
 from optparse import OptionParser
 from array import array
 from math import sqrt
+import subprocess
 #import numpy as np
 
 MAXCANDIDATES = 1000
@@ -219,9 +220,6 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
         if ient % 10 == 0:
             print "Event %d of %d..." % (ient,N)
 
-	if ient > 100:
-           sys.exit()
-
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
 
@@ -418,10 +416,8 @@ if __name__ == "__main__":
     t_pot[0] = 0.
     for run in range( args.first_run, args.last_run+1 ):
         fname = "%s/EDep/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
-        ghepname = "%s/GENIE/%s/%s/%s.%d.ghep.root" % (args.topdir, horn, args.geom, neutrino, run)
-	print('Does the file %s exist: %r'%(fname, os.path.exists(fname)))
-	print('Do you have access to %s:%r'%(fname, os.access( fname, os.R_OK )))
-#        sys.exit()
+        print('Does the file %s exist: %r'%(fname, os.path.exists(fname)))
+        print('Do you have access to %s:%r'%(fname, os.access( fname, os.R_OK )))
         if not os.access( fname, os.R_OK ):
             print "Can't access file: %s" % fname
             continue
@@ -437,10 +433,11 @@ if __name__ == "__main__":
         print "Adding: %s" % fname
         events.Add( fname )
 
-        ghepf = ROOT.TFile( ghepname )
-        gtree = ghepf.Get( "gtree" )
-        t_pot[0] += gtree.GetWeight()
 
+    rhcarg = "--rhc" if args.rhc else ""
+    cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
+    sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
+    t_pot[0] = float(sp.communicate()[0])
     meta.Fill()
 
     loop( events, tgeo, tree )
