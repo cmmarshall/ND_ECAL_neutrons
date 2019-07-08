@@ -106,9 +106,11 @@ class NeutronCandidate:
         print "     %d hits on %d cells, total energy %1.1f MeV, centroid (%1.1f, %1.1f, %1.1f)" % (self.nhits, len(self.cells), self.energy, self.intpt.x()/self.energy, self.intpt.y()/self.energy, self.intpt.z()/self.energy)
 
 
-def GetPurityData(candidates):
+def GetPurityData(candidates, No):
     import csv
-    output1 = []
+    output1 = []; output2 = [];
+	
+#    print('Number of Clusters:%d'%(len(candidates)))
     for cluster in candidates:
         No_of_NParents = 0; No_of_GParents = 0
         neutral_tids = []; hits = cluster.getHits()
@@ -118,26 +120,27 @@ def GetPurityData(candidates):
             if hit[1] == 'g':
                 No_of_GParents+=1
             neutral_tids.append(hit[2])
+#	print('Number of Neutron and Photon Parents: (%d, %d)'%(No_of_NParents, No_of_GParents))
+#	sys.exit()
         neutral_tids = sorted(neutral_tids)
         occurances = []; oc = 1; prev_val = neutral_tids[0]
         for i in range(1, len(neutral_tids)):
-            if neutral_tid[i] != prev_val:
-                occurances.append(oc); prev_val = neutral_tid[i]
+            if neutral_tids[i] != prev_val:
+                occurances.append(oc); prev_val = neutral_tids[i]
                 oc = 1
             else:
                 oc+=1
         occurances.append(oc)
-        output2.append(max(occurances)/len(occurances))
-        output1.append(max(No_of_GParents, No_of_NParents)/(No_of_GParents + No_of_NParents))
-    with open('Purity_NvG.csv', 'w') as writeFile:
+        output2.append(float(max(occurances))/float(len(neutral_tids)))
+        output1.append(float(max(No_of_GParents, No_of_NParents))/float((No_of_GParents + No_of_NParents)))
+    with open('/pnfs/dune/persistent/users/rsahay/Test/Purity_NvG_%d.csv'%No, 'w') as writeFile:
         writer = csv.writer(writeFile)
         for thing in output1:
             writer.writerow([thing])
-    with open('Purity_ParentTID.csv', 'w') as writeFile:
+    with open('/pnfs/dune/persistent/users/rsahay/Test/Purity_ParentTID_%d.csv'%No, 'w') as writeFile:
         writer = csv.writer(writeFile)
         for thing in output2:
             writer.writerow([thing])
-
 
     #np.save('Purity_NvG.npy', output1 )
     #np.save('Purity_ParentTID.npy', output2)
@@ -152,7 +155,7 @@ def isinCluster(candidate, cluster, thresh):
     hits = cluster.getHits()
     for hit in hits:
         diff = hit[0] - candidate
-        distance = sqrt(diff.dot(diff))
+        distance = sqrt(diff.Dot(diff))
         if distance <= thresh:
             return True
     return False
@@ -213,8 +216,11 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
 
     N = events.GetEntries()
     for ient in range(N):
-        if ient % 100 == 0:
+        if ient % 10 == 0:
             print "Event %d of %d..." % (ient,N)
+	
+	if ient > 100:
+           sys.exit()
 
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
@@ -229,7 +235,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
             t_vtxA[0] = int((reaction.split(";")[1].split(":")[1])[6:9])
 
             #node = tgeo.FindNode( vertex.Position[0], vertex.Position[1], vertex.Position[2] )
-            #print "Interaction vertex in %s at (%1.1f, %1.1f, %1.1f)" % (node.GetName(), vertex.Position[0]/10., vertex.Position[1]/10., vertex.Position[2]/10.)
+            #print "Interaction vertex in %s at (%1.1f, %1.1f, %1.1f" % (node.GetName(), vertex.Position[0]/10., vertex.Position[1]/10., vertex.Position[2]/10.)
 
             # Loop over primary particles only, i.e. direct products of neutrino interaction
             #neutron_tids = []
@@ -277,16 +283,18 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                         inCluster = False
                         for cluster in candidates:
                             if isinCluster(hStart, cluster, Cluster_Threshold) and not inCluster:
-                                cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent)
+				node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
+                                cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                                 inCluster = True
                         if not inCluster:
                             truePDG = event.Trajectories[neutral_tid].PDGCode
                             mom = event.Trajectories[neutral_tid].InitialMomentum
                             c = NeutronCandidate(neutral_tid, truePDG, mom.E()-mom.M())
+                            node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-            GetPurityData(candidates)
+            GetPurityData(candidates, ient )
 
             """
             candidates = {}
@@ -332,7 +340,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                 #isPrimary = (event.Trajectories[key].ParentId == -1)
                 #for hit in candidate[key].getHits():
 
-                neutral_tids = list([thing[2] for thing in candidate[key].getHits()])
+                neutral_tids = list([thing[2] for thing in candidates[key].getHits()])
                 #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
                 largestContrib = max(set(neutral_tids), key=neutral_tids.count)
                 isPrimary = (event.Trajectories[largestContrib].ParentId == -1)
@@ -363,7 +371,7 @@ if __name__ == "__main__":
 
     parser = OptionParser()
     parser.add_option('--outfile', help='Output file name', default="out.root")
-    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep/FHC/GArTPC")
+    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep/")
     parser.add_option('--first_run', type=int, help='First run number', default=0)
     parser.add_option('--last_run', type=int, help='Last run number', default=0)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
@@ -404,7 +412,10 @@ if __name__ == "__main__":
     horn = "FHC" if not args.rhc else "RHC"
 
     for run in range( args.first_run, args.last_run+1 ):
-        fname = "%s/%s/%s/%s.%d.edep.root" % (args.topdir, horn, args.geom, neutrino, run)
+        fname = "%s/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
+	print('Does the file %s exist: %r'%(fname, os.path.exists(fname)))
+	print('Do you have access to %s:%r'%(fname, os.access( fname, os.R_OK )))
+#        sys.exit()
         if not os.access( fname, os.R_OK ):
             print "Can't access file: %s" % fname
             continue
@@ -419,7 +430,6 @@ if __name__ == "__main__":
 
         print "Adding: %s" % fname
         events.Add( fname )
-
     loop( events, tgeo, tree )
     fout.cd()
     tree.Write()
