@@ -371,7 +371,7 @@ if __name__ == "__main__":
 
     parser = OptionParser()
     parser.add_option('--outfile', help='Output file name', default="out.root")
-    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim/EDep/")
+    parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim")
     parser.add_option('--first_run', type=int, help='First run number', default=0)
     parser.add_option('--last_run', type=int, help='Last run number', default=0)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
@@ -404,6 +404,10 @@ if __name__ == "__main__":
     tree.Branch( "nIsPrimary", t_nIsPrimary, "nIsPrimary[nCandidates]/I" )
     tree.Branch( "nTrueKE", t_nTrueKE, "nTrueKE[nCandidates]/D" )
 
+    meta = ROOT.TTree( "potTree", "potTree" )
+    t_pot = array( 'd', [0.] )
+    meta.Branch( "pot", t_pot, "pot/D" )
+
     tgeo = None
 
     events = ROOT.TChain( "EDepSimEvents", "main event tree" )
@@ -411,8 +415,10 @@ if __name__ == "__main__":
     neutrino = "neutrino" if not args.rhc else "antineutrino"
     horn = "FHC" if not args.rhc else "RHC"
 
+    t_pot[0] = 0.
     for run in range( args.first_run, args.last_run+1 ):
-        fname = "%s/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
+        fname = "%s/EDep/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
+        ghepname = "%s/GENIE/%s/%s/%s.%d.ghep.root" % (args.topdir, horn, args.geom, neutrino, run)
 	print('Does the file %s exist: %r'%(fname, os.path.exists(fname)))
 	print('Do you have access to %s:%r'%(fname, os.access( fname, os.R_OK )))
 #        sys.exit()
@@ -430,6 +436,14 @@ if __name__ == "__main__":
 
         print "Adding: %s" % fname
         events.Add( fname )
+
+        ghepf = ROOT.TFile( ghepname )
+        gtree = ghepf.Get( "gtree" )
+        t_pot[0] += gtree.GetWeight()
+
+    meta.Fill()
+
     loop( events, tgeo, tree )
     fout.cd()
     tree.Write()
+    meta.Write()
