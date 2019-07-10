@@ -154,7 +154,8 @@ def Closest_Cluster_Distribution(candidates,No):
                 diff = ivec - jvec; distance = sqrt(diff.Dot(diff))
                 if distance < min_distance:
                     min_distance = distance
-        output.append(min_distance)
+        if min_distance != 1e100:
+            output.append(min_distance)
     with open('./Test/Distance_Distribution_%d.csv'%No, 'w') as writeFile:
         writer = csv.writer(writeFile)
         for thing in output:
@@ -226,7 +227,7 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
-def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
+def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
 
     offset = [ 0., 305., 5. ]
 
@@ -237,7 +238,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
     for ient in range(N):
         if ient % 10 == 0:
             print "Event %d of %d..." % (ient,N)
-	if ient > 100:
+	if ient > 1000:
 	    break;
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
@@ -311,8 +312,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-#            GetPurityData(candidates, ient )
-#            Closest_Cluster_Distribution(candidates, ient)
+            GetPurityData(candidates, ient )
+            Closest_Cluster_Distribution(candidates, ient)
 
             """
             candidates = {}
