@@ -48,7 +48,7 @@ class NeutronCandidate:
 
     def addHit(self, pos, volName, hEnergy, hTime, parent, neutral_tid):
         self.nhits += 1
-        self.hits.append([pos, parent, neutral_tid])
+        self.hits.append([pos, parent, neutral_tid, hEnergy])
 
         if volName not in self.cells:
             self.cells[volName] = hEnergy
@@ -109,30 +109,26 @@ class NeutronCandidate:
 
 def GetPurityData(candidates, No):
     import csv
-    output1 = []; output2 = [];
+    output1 = []; output2 = []
 
 #    print('Number of Clusters:%d'%(len(candidates)))
     for cluster in candidates:
         No_of_NParents = 0; No_of_GParents = 0
-        neutral_tids = []; hits = cluster.getHits()
+        #neutral_tids = [];
+        hits = cluster.getHits()
+        Energy_Dict = {}
         for hit in hits:
             if hit[1] == 'n':
-                No_of_NParents+=1
+                No_of_NParents+=hit[3]
             if hit[1] == 'g':
-                No_of_GParents+=1
-            neutral_tids.append(hit[2])
-#	print('Number of Neutron and Photon Parents: (%d, %d)'%(No_of_NParents, No_of_GParents))
-#	sys.exit()
-        neutral_tids = sorted(neutral_tids)
-        occurances = []; oc = 1; prev_val = neutral_tids[0]
-        for i in range(1, len(neutral_tids)):
-            if neutral_tids[i] != prev_val:
-                occurances.append(oc); prev_val = neutral_tids[i]
-                oc = 1
+                No_of_GParents+=hit[3]
+            #neutral_tids.append(hit[2])
+            if hits[2] in Energy_Dict:
+                Energy_Dict[hits[2]] += hit[3]
             else:
-                oc+=1
-        occurances.append(oc)
-        output2.append(float(max(occurances))/float(len(neutral_tids)))
+                Energy_Dict[hits[2]] = hit[3]
+        aux_list = [(value, key) for key, value in Energy_Dict.items()]
+        output2.append(float(max(aux_list)[0])/float((No_of_GParents + No_of_NParents)))
         output1.append(float(max(No_of_GParents, No_of_NParents))/float((No_of_GParents + No_of_NParents)))
     with open('/pnfs/dune/persistent/users/rsahay/Test/Purity_NvG_%d.csv'%No, 'w') as writeFile:
         writer = csv.writer(writeFile)
@@ -142,6 +138,28 @@ def GetPurityData(candidates, No):
         writer = csv.writer(writeFile)
         for thing in output2:
             writer.writerow([thing])
+
+
+def Closest_Cluster_Distribution(candidates,No):
+    import csv
+    output = []
+    for i in range(len(candidates)):
+        min_distance = 1e100
+        for j in range(len(candidates)):
+            if i == j:
+                continue
+            else:
+                clusteri = candidates[i]; clusterj = candidates[j]
+                ivec = clusteri.getPos(); jvec = clusterj.getPos()
+                diff = ivec - jvec; distance = sqrt(diff.Dot(diff))
+                if distance < min_distance:
+                    min_distance = distance
+        output.append(min_distance)
+    with open('./Test/Distance_Distribution_%d.csv'%No, 'w') as writeFile:
+        writer = csv.writer(writeFile)
+        for thing in output:
+            writer.writerow([thing])
+
 
     #np.save('Purity_NvG.npy', output1 )
     #np.save('Purity_ParentTID.npy', output2)
@@ -293,6 +311,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             candidates.append(c)
 
             #GetPurityData(candidates, ient )
+            #Closest_Cluster_Distribution(candidates, ient)
 
             """
             candidates = {}
