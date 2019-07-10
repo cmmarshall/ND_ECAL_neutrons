@@ -123,18 +123,18 @@ def GetPurityData(candidates, No):
             if hit[1] == 'g':
                 No_of_GParents+=hit[3]
             #neutral_tids.append(hit[2])
-            if hits[2] in Energy_Dict:
-                Energy_Dict[hits[2]] += hit[3]
+            if hit[2] in Energy_Dict:
+                Energy_Dict[hit[2]] += hit[3]
             else:
-                Energy_Dict[hits[2]] = hit[3]
+                Energy_Dict[hit[2]] = hit[3]
         aux_list = [(value, key) for key, value in Energy_Dict.items()]
         output2.append(float(max(aux_list)[0])/float((No_of_GParents + No_of_NParents)))
         output1.append(float(max(No_of_GParents, No_of_NParents))/float((No_of_GParents + No_of_NParents)))
-    with open('/pnfs/dune/persistent/users/rsahay/Test/Purity_NvG_%d.csv'%No, 'w') as writeFile:
+    with open('./Test/Purity_NvG_%d.csv'%No, 'w') as writeFile:
         writer = csv.writer(writeFile)
         for thing in output1:
             writer.writerow([thing])
-    with open('/pnfs/dune/persistent/users/rsahay/Test/Purity_ParentTID_%d.csv'%No, 'w') as writeFile:
+    with open('./Test/Purity_ParentTID_%d.csv'%No, 'w') as writeFile:
         writer = csv.writer(writeFile)
         for thing in output2:
             writer.writerow([thing])
@@ -237,7 +237,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
     for ient in range(N):
         if ient % 10 == 0:
             print "Event %d of %d..." % (ient,N)
-
+	if ient > 100:
+	    break;
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
 
@@ -310,8 +311,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-            #GetPurityData(candidates, ient )
-            #Closest_Cluster_Distribution(candidates, ient)
+            GetPurityData(candidates, ient )
+            Closest_Cluster_Distribution(candidates, ient)
 
             """
             candidates = {}
