@@ -311,8 +311,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 1 ): # ** CHRIS: WHAT SHOULD I
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid))
                             candidates.append(c)
 
-            GetPurityData(candidates, ient )
-            Closest_Cluster_Distribution(candidates, ient)
+#            GetPurityData(candidates, ient )
+#            Closest_Cluster_Distribution(candidates, ient)
 
             """
             candidates = {}
