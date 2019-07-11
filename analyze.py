@@ -230,6 +230,8 @@ def MergeClusters(cluster1, cluster2):
 
     return output_cluster
 
+def intersection(list1, list2):
+    return list(set(list1)&set(list2))
 
 
 def setToBogus():
@@ -380,13 +382,70 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                             node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
                             candidates.append(c)
-            for i in range(len(candidates)):
-                clusteri = candidates[i]; posi = clusteri.GetPos()
-		for j in range(i, len(candidates)):
-                    clusterj = candidates[j]; posj = clusterj.GetPos()
-                    diff = posi - posj; distance = sqrt(diff.Dot(diff))
-                    if distance
+
+                merge_dict = {}
+                for i in range(len(candidates)):
+                    clusteri = candidates[i]; posi = clusteri.GetPos()
+                    merge_dict[i] = []
+                    for j in range(len(candidates)):
+                        clusterj = candidates[j]; posj = clusterj.GetPos()
+                        diff = posi - posj; distance = sqrt(diff.Dot(diff))
+                        if distance < Cluster_Threshold:
+                            merge_dict[i].append(j)
+
+                reduced_merges = []; reduced_keys = []
+                for key1 in merge_dict:
+                    reduced_merges.append(merge_dict[key1])
+                    if key1 not in reduced_keys:
+                        reduced_keys.append(key1)
+                        for key2 in merge_dict:
+                            if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
+                                reduced_keys.append(key2)
+                                reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
+
+                new_candidates = []
+                for thing in reduced_merges:
+                    if len(thing) == 1:
+                        new_candidates.append(candidates[thing[0]])
+                    else:
+                        output_cluster = candidates(thing[0])
+                        for i in range(1,len(thing)):
+                            output_cluster = MergeClusters(output_cluster, candidates[thing[i]])
+                        new_candidates.append(MergeClusters)
+                candidates = new_candidates
                     
+
+
+
+
+
+#            merge_dict = {}
+#            for i in range(len(candidates)):
+#                clusteri = candidates[i]; posi = clusteri.GetPos()
+#                merge_dict[i] = []
+#                Boolthing = False
+#                for k in range(0, i):
+#                    if i in merge_dict[k]:
+#                        Boolthing = True
+#                if not Boolthing:
+#		            for j in range(i, len(candidates)):
+#                        clusterj = candidates[j]; posj = clusterj.GetPos()
+#                        diff = posi - posj; distance = sqrt(diff.Dot(diff))
+#                        if distance < Cluster_Threshold:
+#                            merge_dict[i].append(j)
+#            new_candidates = []
+#            for i in range(len(candidates)):
+#                clusteri = candidates[i]
+#                if len(merge_dict[i]) > 0:
+#                    output_cluster = clusteri;
+#                    for j in merge_dict[i]:
+#                        clusterj = candidates[j]
+#                        output_cluster = MergeClusters(output_cluster,clusterj)
+#                    new_candidates.append(output_cluster)
+#                else:
+#                    new_candidates.append(clusteri)
+
+
 
             GetPurityData(candidates, ient )
             Closest_Cluster_Distribution(candidates, ient)
