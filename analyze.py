@@ -382,17 +382,20 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                             node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
                             candidates.append(c)
+		#import time as time
 
+		#start_time = time.time()
                 merge_dict = {}
                 for i in range(len(candidates)):
-                    clusteri = candidates[i]; posi = clusteri.GetPos()
+                    clusteri = candidates[i]; posi = clusteri.getPos()
                     merge_dict[i] = []
                     for j in range(len(candidates)):
-                        clusterj = candidates[j]; posj = clusterj.GetPos()
+                        clusterj = candidates[j]; posj = clusterj.getPos()
                         diff = posi - posj; distance = sqrt(diff.Dot(diff))
                         if distance < Cluster_Threshold:
                             merge_dict[i].append(j)
-
+		#time1 = time.time()
+		#print('Time Taken to do the first thing:', time1 - start_time)
                 reduced_merges = []; reduced_keys = []
                 for key1 in merge_dict:
                     reduced_merges.append(merge_dict[key1])
@@ -403,17 +406,19 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                                 reduced_keys.append(key2)
                                 reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
 
+		#time2 = time.time()
+		#print('Time Taken to the do the second thing:', time2 - time1) 
                 new_candidates = []
                 for thing in reduced_merges:
                     if len(thing) == 1:
                         new_candidates.append(candidates[thing[0]])
                     else:
-                        output_cluster = candidates(thing[0])
+                        output_cluster = candidates[thing[0]]
                         for i in range(1,len(thing)):
                             output_cluster = MergeClusters(output_cluster, candidates[thing[i]])
-                        new_candidates.append(MergeClusters)
+                        new_candidates.append(output_cluster)
                 candidates = new_candidates
-                    
+                #print('Time Taken to the do the third thing:', time.time() - time2)
 
 
 
