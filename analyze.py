@@ -434,7 +434,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 #                for k in range(0, i):
 #                    if i in merge_dict[k]:
 #                        Boolthing = True
-#                if not Boolthing:
+#                if not Boolthing:#		            for j in range(i, len(candidates)):
 #		            for j in range(i, len(candidates)):
 #                        clusterj = candidates[j]; posj = clusterj.GetPos()
 #                        diff = posi - posj; distance = sqrt(diff.Dot(diff))
