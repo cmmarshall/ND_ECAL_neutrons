@@ -221,9 +221,13 @@ def MergeClusters(cluster1, cluster2):
     hits1 = cluster1.getHits(); hits2 = cluster2.getHits()
     output_cluster = NeutronCandidate()
     for hit in hits1:
-        output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6])
+        output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
     for hit in hits2:
-        output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6])
+        output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
+    output_cluster.GenTruePDG()
+    output_cluster.GenTrueKE()
+    output_cluster.GenTID()
+
     return output_cluster
 
 
@@ -284,7 +288,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
     for ient in range(N):
         if ient % 10 == 0:
             print "Event %d of %d..." % (ient,N)
-	if ient > 1000:
+	if ient > 300:
 	    break;
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
@@ -355,9 +359,9 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                                 index = inwhichClusters[i]
                                 this_cluster = candidates[index]
                                 output_cluster = MergeClusters(output_cluster, this_cluster)
-                            node = tgeo.FindNone( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
+                            node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                             mom = event.Trajectories[neutral_tid].InitialMomentum
-                            output_cluster.addHit((hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
+                            output_cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
                             inwhichClusters = sorted(inwhichClusters); pindex = 0
                             for i in range(len(inwhichClusters)):
                                 cindex = inwhichClusters[i] - pindex
@@ -365,7 +369,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                                 pindex+=1
                             candidates.append(output_cluster)
                         elif len(inwhichClusters) == 1:
-                            node = tgeo.FindNone( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
+                            node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                             mom = event.Trajectories[neutral_tid].InitialMomentum
                             cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
                         else:
@@ -376,6 +380,13 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                             node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
                             c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
                             candidates.append(c)
+            for i in range(len(candidates)):
+                clusteri = candidates[i]; posi = clusteri.GetPos()
+		for j in range(i, len(candidates)):
+                    clusterj = candidates[j]; posj = clusterj.GetPos()
+                    diff = posi - posj; distance = sqrt(diff.Dot(diff))
+                    if distance
+                    
 
             GetPurityData(candidates, ient )
             Closest_Cluster_Distribution(candidates, ient)
