@@ -219,11 +219,14 @@ def isinCluster(candidate, cluster, thresh):
 
 def MergeClusters(cluster1, cluster2):
     hits1 = cluster1.getHits(); hits2 = cluster2.getHits()
-    output_cluster = NeutronCandidate()
-    for hit in hits1:
-        output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
-    for hit in hits2:
-        output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
+    if len(hits1) > len(hits2):
+        output_cluster = cluster1
+        for hit in hits2:
+            output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
+    else:
+        output_cluster = cluster2
+        for hit in hits1:
+            output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
     output_cluster.GenTruePDG()
     output_cluster.GenTrueKE()
     output_cluster.GenTID()
@@ -413,7 +416,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                             output_cluster = MergeClusters(output_cluster, candidates[thing[i]])
                         new_candidates.append(MergeClusters)
                 candidates = new_candidates
-                    
+
 
 
 
