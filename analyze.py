@@ -421,12 +421,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                             output_cluster = MergeClusters(output_cluster, candidates[thing[i]])
                         new_candidates.append(output_cluster)
                 candidates = new_candidates
-<<<<<<< HEAD
-
-=======
                 #print('Time Taken to the do the third thing:', time.time() - time2)
->>>>>>> 141443b8639351f190a318b59fc1c5e5b1b7a053
-
 
 
 
