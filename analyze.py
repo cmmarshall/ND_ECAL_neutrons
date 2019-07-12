@@ -8,6 +8,7 @@ from optparse import OptionParser
 from array import array
 from math import sqrt
 import subprocess
+from Cluster_Module import *
 #import numpy as np
 
 MAXCANDIDATES = 1000
@@ -33,6 +34,9 @@ t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nIsPrimary = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
 
+
+
+"""
 class NeutronCandidate:
 
     def __init__(self):
@@ -217,21 +221,21 @@ def isinCluster(candidate, cluster, thresh):
             return True
     return False
 
-def MergeClusters(cluster1, cluster2):
-    hits1 = cluster1.getHits(); hits2 = cluster2.getHits()
-    if len(hits1) > len(hits2):
-        output_cluster = cluster1
-        for hit in hits2:
-            output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
-    else:
-        output_cluster = cluster2
-        for hit in hits1:
-            output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
-    output_cluster.GenTruePDG()
-    output_cluster.GenTrueKE()
-    output_cluster.GenTID()
-
-    return output_cluster
+#def MergeClusters(cluster1, cluster2):
+#    hits1 = cluster1.getHits(); hits2 = cluster2.getHits()
+#    if len(hits1) > len(hits2):
+#        output_cluster = cluster1
+#        for hit in hits2:
+#            output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
+#    else:
+#        output_cluster = cluster2
+#        for hit in hits1:
+#            output_cluster.addHit(hit[0], hit[4], hit[3], hit[5], hit[1], hit[2], hit[6], False)
+#    output_cluster.GenTruePDG()
+#    output_cluster.GenTrueKE()
+#    output_cluster.GenTID()
+#    return output_cluster
+"""
 
 def intersection(list1, list2):
     return list(set(list1)&set(list2))
@@ -334,12 +338,10 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             for hit in ecal_hits:
                 if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
-
                 hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
                 hStop = ROOT.TVector3( hit.Stop.X()/10., hit.Stop.Y()/10., hit.Stop.Z()/10. )
 
-                #Truth-match the hits
-                #neutral_tid = -1
+                #--------------DETERMINE PARENT PARTICLE--------------------#
                 parent = None; neutral_tid = -1
                 for i in range(len(hit.Contrib)):
                     tid = hit.Contrib[i]
@@ -352,42 +354,59 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                         else:
                             parent = None; neutral_tid = photon_tid
 
+                    #----------------------------------------------------------#
+                    #-------------------\\\\\Clustering\\\\\-------------------#
+                    #----------------------------------------------------------#
                     if parent is not None:
+                        #Define Proposed Hit
+                        node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
+                        mom = event.Trajectories[neutral_tid].InitialMomentum
+                        New_Hit = Hit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
+
+
+                        #Figure out what clusters our hit is in
                         inCluster = False; inwhichClusters= []
-                        for i in range(len(candidates)):
-                            cluster = candidates[i]
-                            if isinCluster(hStart, cluster, Cluster_Threshold):
+                        for i, cluster in enumerate(candidates):
+                            if New_Hit in cluster:
                                 inwhichClusters.append(i)
+
+
+                        #If hit belongs to multiple clusters merge the clusters
                         if len(inwhichClusters) > 1:
                             output_cluster = candidates[inwhichClusters[0]]
                             for i in range(1, len(inwhichClusters)):
                                 index = inwhichClusters[i]
                                 this_cluster = candidates[index]
-                                output_cluster = MergeClusters(output_cluster, this_cluster)
-                            node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
-                            mom = event.Trajectories[neutral_tid].InitialMomentum
-                            output_cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
+                                output_cluster += this_cluster
+                            output_cluster.addHit(New_Hit)
+
+                            #Make sure to remove old clusters
                             inwhichClusters = sorted(inwhichClusters); pindex = 0
                             for i in range(len(inwhichClusters)):
                                 cindex = inwhichClusters[i] - pindex
                                 candidates.pop(cindex)
                                 pindex+=1
+                            #Append New Cluster
                             candidates.append(output_cluster)
-                        elif len(inwhichClusters) == 1:
-                            node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
-                            mom = event.Trajectories[neutral_tid].InitialMomentum
-                            cluster.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
-                        else:
-                            #truePDG = event.Trajectories[neutral_tid].PDGCode
-                            mom = event.Trajectories[neutral_tid].InitialMomentum
-                            #c = NeutronCandidate(neutral_tid, truePDG, mom.E()-mom.M())
-                            c = NeutronCandidate()
-                            node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
-                            c.addHit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
-                            candidates.append(c)
-		#import time as time
 
-		#start_time = time.time()
+
+                        #If hit only belongs to one cluster
+                        elif len(inwhichClusters) == 1:
+                            index = inwhichClusters[0]
+                            candidates[index].addHit(New_Hit)
+
+
+                        #If hit doesn't belong to any clusters
+                        else:
+                            c = NeutronCandidate()
+                            c.addHit(New_Hit)
+                            candidates.append(c)
+
+                #---------------------------------------#
+                #-------------MERGE CLUSTERS------------#
+                #---------------------------------------#
+
+                #STEP 1
                 merge_dict = {}
                 for i in range(len(candidates)):
                     clusteri = candidates[i]; posi = clusteri.getPos()
@@ -397,8 +416,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                         diff = posi - posj; distance = sqrt(diff.Dot(diff))
                         if distance < Cluster_Threshold:
                             merge_dict[i].append(j)
-		#time1 = time.time()
-		#print('Time Taken to do the first thing:', time1 - start_time)
+                #STEP 2
                 reduced_merges = []; reduced_keys = []
                 for key1 in merge_dict:
                     reduced_merges.append(merge_dict[key1])
@@ -409,8 +427,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                                 reduced_keys.append(key2)
                                 reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
 
-		#time2 = time.time()
-		#print('Time Taken to the do the second thing:', time2 - time1) 
+                #STEP 3
                 new_candidates = []
                 for thing in reduced_merges:
                     if len(thing) == 1:
@@ -418,7 +435,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                     else:
                         output_cluster = candidates[thing[0]]
                         for i in range(1,len(thing)):
-                            output_cluster = MergeClusters(output_cluster, candidates[thing[i]])
+                            output_cluster+=candidates[thing[i]]
                         new_candidates.append(output_cluster)
                 candidates = new_candidates
                 #print('Time Taken to the do the third thing:', time.time() - time2)
