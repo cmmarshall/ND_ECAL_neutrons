@@ -295,7 +295,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
     N = events.GetEntries()
     for ient in range(N):
-        if ient % 10 == 0:
+        if ient % 1 == 0:
             print "Event %d of %d..." % (ient,N)
 	if ient > 300:
 	    break;
@@ -417,10 +417,15 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                         if distance < Cluster_Threshold:
                             merge_dict[i].append(j)
                 #STEP 2
+
+#		print(merge_dict)
                 reduced_merges = []; reduced_keys = []
                 for key1 in merge_dict:
-                    reduced_merges.append(merge_dict[key1])
+#		    print(merge_dict[key1])
+#                    reduced_merges.append(merge_dict[key1])
+#		    print(reduced_keys)
                     if key1 not in reduced_keys:
+			reduced_merges.append(merge_dict[key1])
                         reduced_keys.append(key1)
                         for key2 in merge_dict:
                             if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
@@ -429,12 +434,15 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
                 #STEP 3
                 new_candidates = []
+#		print(reduced_merges)
+		#sys.exit()
                 for thing in reduced_merges:
                     if len(thing) == 1:
                         new_candidates.append(candidates[thing[0]])
                     else:
                         output_cluster = candidates[thing[0]]
                         for i in range(1,len(thing)):
+#			    print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
                             output_cluster+=candidates[thing[i]]
                         new_candidates.append(output_cluster)
                 candidates = new_candidates
@@ -518,7 +526,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 #isPrimary = (event.Trajectories[key].ParentId == -1)
                 #for hit in candidate[key].getHits():
 
-                neutral_tids = list([thing[2] for thing in candidates[key].getHits()])
+                neutral_tids = list([thing.getNeutralTID() for thing in candidates[key].getHits()])
                 #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
                 largestContrib = max(set(neutral_tids), key=neutral_tids.count)
                 isPrimary = (event.Trajectories[largestContrib].ParentId == -1)

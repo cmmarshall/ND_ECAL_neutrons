@@ -64,7 +64,7 @@ class NeutronCandidate:
         self.tid = -2
 
     def __add__(self,other): #This is merging clusters
-        other_hits = other.getHits(); self_hits = self.hits
+        other_hits = other.getHits(); self_hits = self.getHits()
         if len(other_hits) > self.hits:
             for hit in self_hits:
                 other.addHit(hit)
@@ -75,16 +75,35 @@ class NeutronCandidate:
             return self
 
     def __iadd__(self, other): #Recursively merging clusters
-        other_hits = other.getHits(); self_hits = self.hits
-        if len(other_hits) > self.hits:
-            for hit in self_hits:
+
+	import time as time
+	s_time = time.time()
+        other_hits = other.getHits(); self_hits = self.getHits()
+	new_obj = NeutronCandidate()
+#	print('Stuff is happening')
+	for i, hit in enumerate(self_hits):
+#	    print('hit %d of %d'%(i, len(self_hits)))
+	    new_obj.addHit(hit)
+	for i, hit in enumerate(other_hits):
+#            print('hit %d of %d'%(i, len(other_hits)))
+	    new_obj.addHit(hit)
+	return new_obj
+
+	
+    """
+        if len(other_hits) > len(self_hits):
+            for i,hit in enumerate(self_hits):
+		print('hit %d of %d'%(i, len(self_hits)))
                 other.addHit(hit)
+	    print('Total Time:%.2f'%(time.time() - s_time))
             return other
         else:
-            for hit in other_hits:
+            for i, hit in enumerate(other_hits):
+		print('Hit %d of %d'%(i, len(other_hits)))
                 self.addHit(hit)
+	    print('Total Time:%.2f'%(time.time() - s_time))
             return self
-
+    """
     def __contains__(self, other):
         hits = self.hits
         for hit in hits:
@@ -116,7 +135,10 @@ class NeutronCandidate:
     def addHit(self, hit, GenTruth = False):
         self.nhits += 1
         self.hits.append(hit)
-
+	
+	import time as time
+	s_time = time.time()
+	pos = hit.getPos() 
         volName = hit.getVolName()
         hEnergy = hit.gethEnergy()
         hTime = hit.gethTime()
@@ -124,7 +146,8 @@ class NeutronCandidate:
         neutral_tid = hit.getNeutralTID()
         parentKE = hit.getParentKE()
 
-
+	time1 = time.time()
+#	print('Doing this takes: %.2f'%(time1 - s_time))
         if volName not in self.cells:
             self.cells[volName] = hEnergy
         else:
@@ -132,16 +155,24 @@ class NeutronCandidate:
 
         self.energy += hEnergy
 
+
+	time2 = time.time()
+#	print('Doing this other thing takes: %.2f'%(time2 - time1))
         if self.inttime is None:
             self.inttime = hTime
         elif hTime < self.inttime:
             self.inttime = hTime
 
+	time3 = time.time()
+#	print('Doing this other other things takes: %.2f'%(time3 - time2))
         if self.intpt is None:
             self.intpt = pos*hEnergy
         else:
             self.intpt += pos*hEnergy # energy-weighted average
 
+
+	time4 = time.time()
+#	print('Now this take: %.2f'%(time4 - time3))
         self.aux_PDG[parent] += hEnergy
 
         if neutral_tid in self.aux_TID:
@@ -152,6 +183,9 @@ class NeutronCandidate:
         if neutral_tid not in self.aux_KE:
             self.aux_KE[neutral_tid] = parentKE
 
+
+	time5 = time.time()
+#	print('Now this takes: %.2f'%(time5 - time4))
         if GenTruth:
             self.GenTruePDG()
             self.GenTrueKE()
