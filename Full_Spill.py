@@ -81,10 +81,18 @@ def GetRecoE(Candidate,vtx):
 def loop(GTree, BTree, Emin, dt, hReco, hFReco, hEffic):
     for entry in GTree: #Each Entry corresponds to a Neutrino
         vtx = ROOT.TVector3(entry.vtxX, entry.vtxY, entry.vtxZ)
+        #pick a time from a flat distribution from 0, 10 microseconds
+
+
         vtxA = entry.vtxA
         GCandidates = [NeutronCandidate(entry, index) for index in range(entry.nCandidates)]
         Candidates = GCandidates
         for Bentry in BTree:
+            #Poisson Distribute Rock Time and Poissomn Distribution Number of Rock Events
+
+
+
+            #Time Shift the Background
             BCandidates = [NeutronCandidate(Bentry, index) for index in range(Bentry.nCandidates)]
             Candidates += BCandidates
         Candidates = sorted(Cone_Reject(Candidates, vtx), key = lambda cluster: random.normalvariate(cluster.getTime(), dt))
