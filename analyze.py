@@ -64,7 +64,6 @@ def neutronParent( event, tid ):
 # return track ID of earliest photon parent; this is different from the neutron case because EM showers
 # will have zillions of photons
 def photonParent( event, tid ):
-
     traj = event.Trajectories[tid]
     if traj.PDGCode not in [11, -11, 22]:
         return -1 # not an EM particle, so it won't have a photon parent
@@ -84,6 +83,22 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
+
+def 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
 
     offset = [ 0., 305., 5. ]
@@ -95,7 +110,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
     for ient in range(N):
         if ient % 1 == 0:
             print "Event %d of %d..." % (ient,N)
-	if ient > 300:
+	if ient > 100:
 	    break;
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
@@ -134,7 +149,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
             candidates = []
             for hit in ecal_hits:
-                print(node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
+                print(tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
                 if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
                 hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
@@ -226,7 +241,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 reduced_merges = []; reduced_keys = []
                 for key1 in merge_dict:
                     if key1 not in reduced_keys:
-			            reduced_merges.append(merge_dict[key1])
+		        reduced_merges.append(merge_dict[key1])
                         reduced_keys.append(key1)
                         for key2 in merge_dict:
                             if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
@@ -423,7 +438,7 @@ if __name__ == "__main__":
         print "Adding: %s" % fname
         events.Add( fname )
 
-
+    print('I am here')
     rhcarg = "--rhc" if args.rhc else ""
     cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
     sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)

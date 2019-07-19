@@ -66,7 +66,7 @@ class NeutronCandidate:
     def __add__(self,other): #This is merging clusters
     	import time as time
     	s_time = time.time()
-            other_hits = other.getHits(); self_hits = self.getHits()
+        other_hits = other.getHits(); self_hits = self.getHits()
     	new_obj = NeutronCandidate()
     #	print('Stuff is happening')
     	for i, hit in enumerate(self_hits):
@@ -80,7 +80,7 @@ class NeutronCandidate:
     def __iadd__(self, other): #Recursively merging clusters
     	import time as time
     	s_time = time.time()
-            other_hits = other.getHits(); self_hits = self.getHits()
+        other_hits = other.getHits(); self_hits = self.getHits()
     	new_obj = NeutronCandidate()
     #	print('Stuff is happening')
     	for i, hit in enumerate(self_hits):
@@ -123,9 +123,9 @@ class NeutronCandidate:
         self.nhits += 1
         self.hits.append(hit)
 
-	    import time as time
-	    s_time = time.time()
-	    pos = hit.getPos()
+	import time as time
+	s_time = time.time()
+	pos = hit.getPos()
         volName = hit.getVolName()
         hEnergy = hit.gethEnergy()
         hTime = hit.gethTime()
