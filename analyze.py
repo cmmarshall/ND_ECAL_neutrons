@@ -134,6 +134,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
             candidates = []
             for hit in ecal_hits:
+                print(node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
                 if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
                 hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
