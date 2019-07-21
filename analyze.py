@@ -1,4 +1,4 @@
-Neutron Candidate#!/usr/bin/env python
+#!/usr/bin/env python
 
 import sys
 import os.path
@@ -86,8 +86,8 @@ def photonParent( event, tid ):
 
 def Initialize_Plot_Dicts(str1 = '', str2 = '', includevtx = True): #String 1 can be whatever but string 2 should be "True Neutron: " or "True Photon: "
     hDict = {}
-    xmin = 0; ymin = 0; zmin = 0; tmin = 0
-    xmax = 0; ymax = 0; zmax = 0; tmax = 0
+    xmin = 0; ymin = 0; zmin = 0; Tmin = 0
+    xmax = 0; ymax = 0; zmax = 0; Tmax = 0
 
     if includevtx:
         hDict['vtxPosX'] = ROOT.TH1D(str1 + "Nu vtx X", "Nu Vertex X Distribution; X-Position (cm);", 100, xmin, xmax  )
@@ -107,13 +107,13 @@ def Initialize_Plot_Dicts(str1 = '', str2 = '', includevtx = True): #String 1 ca
     hDict['CXY']= ROOT.TH2D(str1 +  "Candidate XvY", str2 + "Neutron Candidate XY Distribution; Y-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, ymin, ymax )
     hDict['CXZ']= ROOT.TH2D(str1 +  "Candidate XvZ", str2 + "Neutron Candidate XZ Distribution; Z-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, zmin, zmax )
     hDict['CYZ']= ROOT.TH2D(str1 +  "Candidate YvZ", str2 + "Neutron Candidate YZ Distribution; Z-Position (cm); Y-Position (cm)", 100, ymin, ymax, 100, zmin, zmax )
-    hDict['CT'] = ROOT.TH1D(str1 +  "Candidate RTime", str2 + "Neutron Candidate Time Distribution (Relative to Nu Vertex); Time (ns);" 100, tmin, tmax)
+    hDict['CT'] = ROOT.TH1D(str1 +  "Candidate RTime", str2 + "Neutron Candidate Time Distribution (Relative to Nu Vertex); Time (ns);", 100, tmin, tmax)
     hDict['CR'] = ROOT.TH1D(str1 +  "Candidate Distance from Nu VtX",str2 + "Candidate Distance from Nu Vertex Distribution; Distance (cm);", 100, rmin, rmax  )
 
     hDict['CVel'] = ROOT.TH1D(str1 + 'Candidate Velocity', 'Candidate Beta Distribution; Beta;', 100, 0, 1)
     Nmin = 0; Nmax = 0
     TNmin = 0; TNmax = 0
-    hDict['TrueNCvNC'] = ROOT.TH1D(str1 + 'NoTrueNCvNC', 'Number of True Neutron Candidates vs Neutron Candidates; Number of Neutron Candidates; Number of True Neutrons', 100, Tmin, Tmax, 100, TNmin, TNmax)
+    hDict['TrueNCvNC'] = ROOT.TH2D(str1 + 'NoTrueNCvNC', 'Number of True Neutron Candidates vs Neutron Candidates; Number of Neutron Candidates; Number of True Neutrons', 100, Tmin, Tmax, 100, TNmin, TNmax)
 
     return hDict
 
@@ -180,8 +180,9 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             ecal_hits = sorted(ecal_hits, key = lambda hit: GetLayer(hit))
 
             candidates = []
-            for hit in ecal_hits:
-                print(tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
+            for kk, hit in enumerate(ecal_hits):
+                print('hit %d of %d'%(kk, len(ecal_hits)))
+                #print(tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
                 if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
                 hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
@@ -189,8 +190,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
                 #--------------DETERMINE PARENT PARTICLE--------------------#
                 parent = None; neutral_tid = -1
-                for i in range(len(hit.Contrib)):
-                    tid = hit.Contrib[i]
+                for ii in range(len(hit.Contrib)):
+                    tid = hit.Contrib[ii]
                     photon_tid = photonParent(event, tid); neutron_tid = neutronParent( event, tid )
                     if neutron_tid > 0:
                         parent = 'n'; neutral_tid = neutron_tid
@@ -253,8 +254,11 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 #---------------------------------------#
 
                 #STEP 1
+
+                print('I have made it here')
                 merge_dict = {}
                 for i in range(len(candidates)):
+                    print('Candidate %d of %d'%(i, len(candidates)))
                     clusteri = candidates[i]#; posi = clusteri.getPos()
                     hitsi = clusteri.getHits()
                     merge_dict[i] = []
@@ -335,6 +339,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
             Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
             tree.Fill()
+
+    sys.exit()
     NOut = ROOT.TFile('TrueNeutron.root')
     c = ROOT.TCanvas()
     for key in NPlot_Dict:
