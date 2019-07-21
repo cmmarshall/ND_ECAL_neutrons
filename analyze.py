@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+Neutron Candidate#!/usr/bin/env python
 
 import sys
 import os.path
@@ -84,34 +84,80 @@ def photonParent( event, tid ):
         return -1
 
 
-def 
+def Initialize_Plot_Dicts(str1 = '', str2 = '', includevtx = True): #String 1 can be whatever but string 2 should be "True Neutron: " or "True Photon: "
+    hDict = {}
+    xmin = 0; ymin = 0; zmin = 0; tmin = 0
+    xmax = 0; ymax = 0; zmax = 0; tmax = 0
 
+    if includevtx:
+        hDict['vtxPosX'] = ROOT.TH1D(str1 + "Nu vtx X", "Nu Vertex X Distribution; X-Position (cm);", 100, xmin, xmax  )
+        hDict['vtxPosY'] = ROOT.TH1D(str1 + "Nu vtx Y", "Nu Vertex Y Distribution; Y-Position (cm);", 100, ymin, ymax  )
+        hDict['vtxPosZ'] = ROOT.TH1D(str1 + "Nu vtx Z", "Nu Vertex Z Distribution; Z-Position (cm);", 100, zmin, zmax  )
+        hDict['vtxPosXY']= ROOT.TH2D(str1 + "Nu vtx XvY", "Nu Vertex XY Distribution; Y-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, ymin, ymax )
+        hDict['vtxPosXZ']= ROOT.TH2D(str1 +  "Nu vtx XvZ", "Nu Vertex XZ Distribution; Z-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, zmin, zmax )
+        hDict['vtxPosYZ']= ROOT.TH2D(str1 + "Nu vtx YvZ", "Nu Vertex YZ Distribution; Z-Position (cm); Y-Position (cm)", 100, ymin, ymax, 100, zmin, zmax )
+        #hDict['vtxTime'] = ROOT.TH1D(str1 + "Nu vtx Time", "Nu Vertex Time Distribution; Time (ns);" 100, tmin, tmax)
 
+    xmin = 0; ymin = 0; zmin = 0; tmin = 0
+    xmax = 0; ymax = 0; zmax = 0; tmax = 0
+    rmin = 0; rmax = 0
+    hDict['CX'] = ROOT.TH1D(str1 +  "Candidate X", str2 + "Neutron Candidate X Distribution; X-Position (cm);", 100, xmin, xmax  )
+    hDict['CY'] = ROOT.TH1D(str1 +  "Candidate Y", str2 + "Neutron Candidate Y Distribution; Y-Position (cm);", 100, ymin, ymax  )
+    hDict['CZ'] = ROOT.TH1D(str1 +  "Candidate Z", str2 + "Neutron Candidate Z Distribution; Z-Position (cm);", 100, zmin, zmax  )
+    hDict['CXY']= ROOT.TH2D(str1 +  "Candidate XvY", str2 + "Neutron Candidate XY Distribution; Y-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, ymin, ymax )
+    hDict['CXZ']= ROOT.TH2D(str1 +  "Candidate XvZ", str2 + "Neutron Candidate XZ Distribution; Z-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, zmin, zmax )
+    hDict['CYZ']= ROOT.TH2D(str1 +  "Candidate YvZ", str2 + "Neutron Candidate YZ Distribution; Z-Position (cm); Y-Position (cm)", 100, ymin, ymax, 100, zmin, zmax )
+    hDict['CT'] = ROOT.TH1D(str1 +  "Candidate RTime", str2 + "Neutron Candidate Time Distribution (Relative to Nu Vertex); Time (ns);" 100, tmin, tmax)
+    hDict['CR'] = ROOT.TH1D(str1 +  "Candidate Distance from Nu VtX",str2 + "Candidate Distance from Nu Vertex Distribution; Distance (cm);", 100, rmin, rmax  )
 
+    hDict['CVel'] = ROOT.TH1D(str1 + 'Candidate Velocity', 'Candidate Beta Distribution; Beta;', 100, 0, 1)
+    Nmin = 0; Nmax = 0
+    TNmin = 0; TNmax = 0
+    hDict['TrueNCvNC'] = ROOT.TH1D(str1 + 'NoTrueNCvNC', 'Number of True Neutron Candidates vs Neutron Candidates; Number of Neutron Candidates; Number of True Neutrons', 100, Tmin, Tmax, 100, TNmin, TNmax)
 
+    return hDict
 
+def Fill_Vertex_Info(Plot_Dict, vertex):
+    PosX = vertex.Position.X()/10.; PosY = vertex.Position.Y()/10.; PosZ = vertex.Position.Z()/10.
+    Plot_Dict['vtxPosX'].Fill(PosX)
+    Plot_Dict['vtxPosY'].Fill(PosY)
+    Plot_Dict['vtxPosZ'].Fill(PosZ)
+    Plot_Dict['vtxPosXY'].Fill(PosX, PosY)
+    Plot_Dict['vtxPosXZ'].Fill(PosX, PosZ)
+    Plot_Dict['vtxPosYZ'].Fill(PosY, PosZ)
 
+def Fill_Candidate_Info(Plot_Dict, Candidates, vertex):
+    c = 29.9792# in cm/ns
+    vtx = ROOT.TVector3(vertex.Position.X()/10., vertex.Position.Y()/10., vertex.Position.Z()/10.)
+    for cluster in Candidates:
+        cposx = cluster.getPos().X(); cposy = cluster.getPos().Y(); cposz = cluster.getPos().Z()
+        cpost = cluster.getTime(); diff = cluster.getPos() - vtx; cposr = sqrt(diff.Dot(diff))
+        Plot_Dict['CX'].Fill(cposx); Plot_Dict['CY'].Fill(cposy); Plot_Dict['CZ'].Fill(cposz)
+        Plot_Dict['CXY'].Fill(cposx,cposy); Plot_Dict['CXZ'].Fill(cposx, cposz); Plot_Dict['CYZ'].Fill(cposy, cposz)
+        Plot_Dict['CT'].Fill(cpost); Plot_Dict['CR'] = cposr
+        Plot_Dict['CVel'].Fill(abs(cposr/cpost)/c)
 
-
-
-
-
-
-
+def GetLayer(hit):
+    node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
+    Cell_Name = node.GetName()
+    decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
+    return decomp[0]
 
 def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
-
     offset = [ 0., 305., 5. ]
 
     event = ROOT.TG4Event()
     events.SetBranchAddress("Event",ROOT.AddressOf(event))
 
+    NPlot_Dict = Initialize_Plot_Dicts(str1 = '1', str2 = 'True Neutron: ')
+    GPlot_Dict = Initialize_Plot_Dicts(str1 = '2', str2 = 'True Photon: ', includevtx = False )
+
     N = events.GetEntries()
     for ient in range(N):
         if ient % 1 == 0:
             print "Event %d of %d..." % (ient,N)
-	if ient > 100:
-	    break;
+	    if ient > 100:
+	        break;
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
 
@@ -124,28 +170,14 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             # atomic mass of target
             t_vtxA[0] = int((reaction.split(";")[1].split(":")[1])[6:9])
 
-            #node = tgeo.FindNode( vertex.Position[0], vertex.Position[1], vertex.Position[2] )
-            #print "Interaction vertex in %s at (%1.1f, %1.1f, %1.1f" % (node.GetName(), vertex.Position[0]/10., vertex.Position[1]/10., vertex.Position[2]/10.)
+            Fill_Vertex_Info(NPlot_Dict, vertex)
 
-            # Loop over primary particles only, i.e. direct products of neutrino interaction
-            #neutron_tids = []
-            #for ipart,particle in enumerate(vertex.Particles):
-            #    e = particle.GetMomentum().E()
-            #    p = (particle.GetMomentum().X()**2 + particle.GetMomentum().Y()**2 + particle.GetMomentum().Z()**2)**0.5
-            #    m = (e**2 - p**2)**0.5
-            #    pdg = particle.GetPDGCode()
-
-            # Loop over all true trajectories
-            #for traj in event.Trajectories:
-            #    mom = traj.GetParentId()
-            #    tid = traj.GetTrackId()
-            #    pid = traj.GetPDGCode()
-
-            # Get ECal hits
             ecal_hits = []
             for det in event.SegmentDetectors:
                 if "ECal" in det.first: # there are several sub-detectors that make up the ECal
                     ecal_hits += det.second
+
+            ecal_hits = sorted(ecal_hits, key = lambda hit: GetLayer(hit))
 
             candidates = []
             for hit in ecal_hits:
@@ -260,88 +292,24 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                             output_cluster+=candidates[thing[i]]
                         new_candidates.append(output_cluster)
                 candidates = new_candidates
-                #print('Time Taken to the do the third thing:', time.time() - time2)
-
-
-
-
-#            merge_dict = {}
-#            for i in range(len(candidates)):
-#                clusteri = candidates[i]; posi = clusteri.GetPos()
-#                merge_dict[i] = []
-#                Boolthing = False
-#                for k in range(0, i):
-#                    if i in merge_dict[k]:
-#                        Boolthing = True
-#                if not Boolthing:#		            for j in range(i, len(candidates)):
-#		            for j in range(i, len(candidates)):
-#                        clusterj = candidates[j]; posj = clusterj.GetPos()
-#                        diff = posi - posj; distance = sqrt(diff.Dot(diff))
-#                        if distance < Cluster_Threshold:
-#                            merge_dict[i].append(j)
-#            new_candidates = []
-#            for i in range(len(candidates)):
-#                clusteri = candidates[i]
-#                if len(merge_dict[i]) > 0:
-#                    output_cluster = clusteri;
-#                    for j in merge_dict[i]:
-#                        clusterj = candidates[j]
-#                        output_cluster = MergeClusters(output_cluster,clusterj)
-#                    new_candidates.append(output_cluster)
-#                else:
-#                    new_candidates.append(clusteri)
-
 
 
             GetPurityData(candidates, ient )
             Closest_Cluster_Distribution(candidates, ient)
 
-            """
-            candidates = {}
-            for hit in ecal_hits:
 
-                if hit.EnergyDeposit < 0.01: # skip tiny deposits,if this cut needs to be tuned
-                    continue
 
-                #hStart = ROOT.TVector3( hit.GetStart().X()/10., hit.GetStart().Y()/10., hit.GetStart().Z()/10. )
-                #hStop = ROOT.TVector3( hit.GetStop().X()/10., hit.GetStop().Y()/10., hit.GetStop().Z()/10. )
-                hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
-                hStop = ROOT.TVector3( hit.Stop.X()/10., hit.Stop.Y()/10., hit.Stop.Z()/10. )
-
-                # Truth-match the hits
-                neutral_tid = -1
-                for i in range(len(hit.Contrib)): # most hits have only one contributor
-                    tid = hit.Contrib[i]
-                    # see if this hit is from a neutron or photon, including one that was produced in secondary interactions
-                    # this basically requires that all contributors be neutral descendents, which is fine
-                    photon_tid = photonParent( event, tid )
-                    neutron_tid = neutronParent( event, tid )
-                    #print "ECal Hit due to %d has photon %d neutron %d" % (tid, photon_tid, neutron_tid)
-                    if neutron_tid > 0:
-                        neutral_tid = neutron_tid
-                    else:
-                        neutral_tid = photon_tid
-
-                if neutral_tid > 1: # neutron- or photon-iduced thing, make a candidate or add to an existing one
-                    if neutral_tid not in candidates: # first hit from this particular neutron/photon
-                        truePDG = event.Trajectories[neutral_tid].PDGCode
-                        mom = event.Trajectories[neutral_tid].InitialMomentum
-                        c = NeutronCandidate( neutral_tid, truePDG, mom.E()-mom.M() )
-                        candidates[neutral_tid] = c
-
-                    # get detector element where this hit occured
-                    #node = tgeo.FindNode( hit.GetStart.X(), hit.GetStart.Y(), hit.GetStart.Z() )
-                    node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z() )
-                    #print "  adding hit to tid %d: (%1.1f, %1.1f, %1.1f), %s, %1.2f MeV, time = %1.2f" % (neutral_tid, hStart.x(), hStart.y(), hStart.z(), node.GetName(), hit.EnergyDeposit, hit.Start[3])
-                    candidates[neutral_tid].addHit( hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3] )
-            """;
             t_nCandidates[0] = 0
+            CTrueN = []; CTrueG =[]
             for key in range(len(candidates)):
                 #isPrimary = (event.Trajectories[key].ParentId == -1)
                 #for hit in candidate[key].getHits():
 
                 candidates[key].UpdateTruth()
-
+                if candidate[key].getTruePDG() == 2112:
+                    CTrueN.append(candidates[key])
+                else:
+                    CTrueG.append(candidates[key])
 
                 neutral_tids = list([thing.getNeutralTID() for thing in candidates[key].getHits()])
                 #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
@@ -364,8 +332,34 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 if t_nCandidates[0] == MAXCANDIDATES:
                     print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
                     break
-
+            Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
+            Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
             tree.Fill()
+    NOut = ROOT.TFile('TrueNeutron.root')
+    c = ROOT.TCanvas()
+    for key in NPlot_Dict:
+        if 'vtx' not in key:
+            NPlot_Dict[key].Write()
+            NPlot_Dict[key].Draw()
+            c.Print('TrueNeutron_%s.eps'%(key))
+    del NOut
+
+    NuOut = ROOT.TFile('Neutrino.root')
+    for key in NPlot_Dict:
+        if 'vtx' in key:
+            NPlot_Dict[key].Write()
+            NPlot_Dict[key].Draw()
+            c.Print('%s.eps'%key)
+    del NuOut
+
+    GOut = ROOT.TFile('TruePhoton.root')
+    for key in GPlot_Dict:
+        GPlot_Dict[key].Write()
+        GPlot_Dict[key].Draw()
+        c.Print('TruePhoton_%s.eps'%key)
+    del GOut
+
+
 
 
 if __name__ == "__main__":
