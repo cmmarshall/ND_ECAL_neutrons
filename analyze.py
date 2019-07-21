@@ -255,90 +255,90 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
                 #STEP 1
 
-                print('I have made it here')
-                merge_dict = {}
-                for i in range(len(candidates)):
-                    print('Candidate %d of %d'%(i, len(candidates)))
-                    clusteri = candidates[i]#; posi = clusteri.getPos()
-                    hitsi = clusteri.getHits()
-                    merge_dict[i] = []
-                    for j in range(len(candidates)):
-                        clusterj = candidates[j];# posj = clusterj.getPos()
-                        hitsj = clusterj.getHits()
-                        for hiti in hitsi:
-                            for hitj in hitsj:
-                                posi = hiti.getPos(); posj = hitj.getPos()
-                                diff = posi - posj; distance = sqrt(diff.Dot(diff))
-                                if distance < Cluster_Threshold:
-                                    merge_dict[i].append(j)
-                                    break; break;
+            print('I have made it here')
+            merge_dict = {}
+            for i in range(len(candidates)):
+                print('Candidate %d of %d'%(i, len(candidates)))
+                clusteri = candidates[i]#; posi = clusteri.getPos()
+                hitsi = clusteri.getHits()
+                merge_dict[i] = []
+                for j in range(len(candidates)):
+                    clusterj = candidates[j];# posj = clusterj.getPos()
+                    hitsj = clusterj.getHits()
+                    for hiti in hitsi:
+                        for hitj in hitsj:
+                            posi = hiti.getPos(); posj = hitj.getPos()
+                            diff = posi - posj; distance = sqrt(diff.Dot(diff))
+                            if distance < Cluster_Threshold:
+                                merge_dict[i].append(j)
+                                break; break;
 
-                #STEP 2
-                reduced_merges = []; reduced_keys = []
-                for key1 in merge_dict:
-                    if key1 not in reduced_keys:
-		        reduced_merges.append(merge_dict[key1])
-                        reduced_keys.append(key1)
-                        for key2 in merge_dict:
-                            if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
-                                reduced_keys.append(key2)
-                                reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
+            #STEP 2
+            reduced_merges = []; reduced_keys = []
+            for key1 in merge_dict:
+                if key1 not in reduced_keys:
+	        reduced_merges.append(merge_dict[key1])
+                    reduced_keys.append(key1)
+                    for key2 in merge_dict:
+                        if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
+                            reduced_keys.append(key2)
+                            reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
 
-                #STEP 3
-                new_candidates = []
-                for thing in reduced_merges:
-                    if len(thing) == 1:
-                        new_candidates.append(candidates[thing[0]])
-                    else:
-                        output_cluster = candidates[thing[0]]
-                        for i in range(1,len(thing)):
-#			    print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
-                            output_cluster+=candidates[thing[i]]
-                        new_candidates.append(output_cluster)
-                candidates = new_candidates
-
-
-            GetPurityData(candidates, ient )
-            Closest_Cluster_Distribution(candidates, ient)
-
-
-
-            t_nCandidates[0] = 0
-            CTrueN = []; CTrueG =[]
-            for key in range(len(candidates)):
-                #isPrimary = (event.Trajectories[key].ParentId == -1)
-                #for hit in candidate[key].getHits():
-
-                candidates[key].UpdateTruth()
-                if candidate[key].getTruePDG() == 2112:
-                    CTrueN.append(candidates[key])
+            #STEP 3
+            new_candidates = []
+            for thing in reduced_merges:
+                if len(thing) == 1:
+                    new_candidates.append(candidates[thing[0]])
                 else:
-                    CTrueG.append(candidates[key])
+                    output_cluster = candidates[thing[0]]
+                    for i in range(1,len(thing)):
+#			    print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
+                        output_cluster+=candidates[thing[i]]
+                    new_candidates.append(output_cluster)
+            candidates = new_candidates
 
-                neutral_tids = list([thing.getNeutralTID() for thing in candidates[key].getHits()])
-                #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
-                largestContrib = max(set(neutral_tids), key=neutral_tids.count)
-                isPrimary = (event.Trajectories[largestContrib].ParentId == -1)
-                t_nPosX[t_nCandidates[0]] = candidates[key].getPos().x()
-                t_nPosY[t_nCandidates[0]] = candidates[key].getPos().y()
-                t_nPosZ[t_nCandidates[0]] = candidates[key].getPos().z()
-                t_nPosT[t_nCandidates[0]] = candidates[key].getTime()
-                t_nE[t_nCandidates[0]] = candidates[key].getEnergy()
-                t_nEmax[t_nCandidates[0]] = candidates[key].getMaxCell()
-                t_nNcell[t_nCandidates[0]] = candidates[key].getNcell()
-                t_nNcell1MeV[t_nCandidates[0]] = candidates[key].getNcellCut(1.)
-                t_nNcell3MeV[t_nCandidates[0]] = candidates[key].getNcellCut(3.)
-                t_nTruePDG[t_nCandidates[0]] = candidates[key].getTruePDG()
-                t_nIsPrimary[t_nCandidates[0]] = isPrimary
-                t_nTrueKE[t_nCandidates[0]] = candidates[key].getTrueKE()
-                t_nCandidates[0] += 1
 
-                if t_nCandidates[0] == MAXCANDIDATES:
-                    print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
-                    break
-            Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
-            Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
-            tree.Fill()
+        GetPurityData(candidates, ient )
+        Closest_Cluster_Distribution(candidates, ient)
+
+
+
+        t_nCandidates[0] = 0
+        CTrueN = []; CTrueG =[]
+        for key in range(len(candidates)):
+            #isPrimary = (event.Trajectories[key].ParentId == -1)
+            #for hit in candidate[key].getHits():
+
+            candidates[key].UpdateTruth()
+            if candidate[key].getTruePDG() == 2112:
+                CTrueN.append(candidates[key])
+            else:
+                CTrueG.append(candidates[key])
+
+            neutral_tids = list([thing.getNeutralTID() for thing in candidates[key].getHits()])
+            #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
+            largestContrib = max(set(neutral_tids), key=neutral_tids.count)
+            isPrimary = (event.Trajectories[largestContrib].ParentId == -1)
+            t_nPosX[t_nCandidates[0]] = candidates[key].getPos().x()
+            t_nPosY[t_nCandidates[0]] = candidates[key].getPos().y()
+            t_nPosZ[t_nCandidates[0]] = candidates[key].getPos().z()
+            t_nPosT[t_nCandidates[0]] = candidates[key].getTime()
+            t_nE[t_nCandidates[0]] = candidates[key].getEnergy()
+            t_nEmax[t_nCandidates[0]] = candidates[key].getMaxCell()
+            t_nNcell[t_nCandidates[0]] = candidates[key].getNcell()
+            t_nNcell1MeV[t_nCandidates[0]] = candidates[key].getNcellCut(1.)
+            t_nNcell3MeV[t_nCandidates[0]] = candidates[key].getNcellCut(3.)
+            t_nTruePDG[t_nCandidates[0]] = candidates[key].getTruePDG()
+            t_nIsPrimary[t_nCandidates[0]] = isPrimary
+            t_nTrueKE[t_nCandidates[0]] = candidates[key].getTrueKE()
+            t_nCandidates[0] += 1
+
+            if t_nCandidates[0] == MAXCANDIDATES:
+                print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
+                break
+        Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
+        Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
+        tree.Fill()
 
     sys.exit()
     NOut = ROOT.TFile('TrueNeutron.root')
