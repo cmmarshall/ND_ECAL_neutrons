@@ -86,34 +86,34 @@ def photonParent( event, tid ):
 
 def Initialize_Plot_Dicts(str1 = '', str2 = '', includevtx = True): #String 1 can be whatever but string 2 should be "True Neutron: " or "True Photon: "
     hDict = {}
-    xmin = 0; ymin = 0; zmin = 0; Tmin = 0
-    xmax = 0; ymax = 0; zmax = 0; Tmax = 0
+    xmin = -1000; ymin = -1000; zmin = -1000; Tmin = 0
+    xmax = 1000; ymax = 1000; zmax = 1000; Tmax = 1000
 
     if includevtx:
-        hDict['vtxPosX'] = ROOT.TH1D(str1 + "Nu vtx X", "Nu Vertex X Distribution; X-Position (cm);", 100, xmin, xmax  )
-        hDict['vtxPosY'] = ROOT.TH1D(str1 + "Nu vtx Y", "Nu Vertex Y Distribution; Y-Position (cm);", 100, ymin, ymax  )
-        hDict['vtxPosZ'] = ROOT.TH1D(str1 + "Nu vtx Z", "Nu Vertex Z Distribution; Z-Position (cm);", 100, zmin, zmax  )
-        hDict['vtxPosXY']= ROOT.TH2D(str1 + "Nu vtx XvY", "Nu Vertex XY Distribution; Y-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, ymin, ymax )
-        hDict['vtxPosXZ']= ROOT.TH2D(str1 +  "Nu vtx XvZ", "Nu Vertex XZ Distribution; Z-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, zmin, zmax )
-        hDict['vtxPosYZ']= ROOT.TH2D(str1 + "Nu vtx YvZ", "Nu Vertex YZ Distribution; Z-Position (cm); Y-Position (cm)", 100, ymin, ymax, 100, zmin, zmax )
+        hDict['vtxPosX'] = ROOT.TH1D(str1 + "Nu vtx X", "Nu Vertex X Distribution; X-Position (cm);", 200, xmin, xmax  )
+        hDict['vtxPosY'] = ROOT.TH1D(str1 + "Nu vtx Y", "Nu Vertex Y Distribution; Y-Position (cm);", 200, ymin, ymax  )
+        hDict['vtxPosZ'] = ROOT.TH1D(str1 + "Nu vtx Z", "Nu Vertex Z Distribution; Z-Position (cm);", 200, zmin, zmax  )
+        hDict['vtxPosXY']= ROOT.TH2D(str1 + "Nu vtx XvY", "Nu Vertex XY Distribution; Y-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, ymin, ymax )
+        hDict['vtxPosXZ']= ROOT.TH2D(str1 +  "Nu vtx XvZ", "Nu Vertex XZ Distribution; Z-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, zmin, zmax )
+        hDict['vtxPosYZ']= ROOT.TH2D(str1 + "Nu vtx YvZ", "Nu Vertex YZ Distribution; Z-Position (cm); Y-Position (cm)", 200, ymin, ymax, 200, zmin, zmax )
         #hDict['vtxTime'] = ROOT.TH1D(str1 + "Nu vtx Time", "Nu Vertex Time Distribution; Time (ns);" 100, tmin, tmax)
 
-    xmin = 0; ymin = 0; zmin = 0; tmin = 0
-    xmax = 0; ymax = 0; zmax = 0; tmax = 0
-    rmin = 0; rmax = 0
-    hDict['CX'] = ROOT.TH1D(str1 +  "Candidate X", str2 + "Neutron Candidate X Distribution; X-Position (cm);", 100, xmin, xmax  )
-    hDict['CY'] = ROOT.TH1D(str1 +  "Candidate Y", str2 + "Neutron Candidate Y Distribution; Y-Position (cm);", 100, ymin, ymax  )
-    hDict['CZ'] = ROOT.TH1D(str1 +  "Candidate Z", str2 + "Neutron Candidate Z Distribution; Z-Position (cm);", 100, zmin, zmax  )
-    hDict['CXY']= ROOT.TH2D(str1 +  "Candidate XvY", str2 + "Neutron Candidate XY Distribution; Y-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, ymin, ymax )
-    hDict['CXZ']= ROOT.TH2D(str1 +  "Candidate XvZ", str2 + "Neutron Candidate XZ Distribution; Z-Position (cm); X-Position (cm)", 100, xmin, xmax, 100, zmin, zmax )
-    hDict['CYZ']= ROOT.TH2D(str1 +  "Candidate YvZ", str2 + "Neutron Candidate YZ Distribution; Z-Position (cm); Y-Position (cm)", 100, ymin, ymax, 100, zmin, zmax )
+    xmin = -1000; ymin = -1000; zmin = -1000; tmin = 0
+    xmax = 1000; ymax = 1000; zmax = 1000; tmax = 1000
+    rmin = 0; rmax = 1000
+    hDict['CX'] = ROOT.TH1D(str1 +  "Candidate X", str2 + "Neutron Candidate X Distribution; X-Position (cm);", 200, xmin, xmax  )
+    hDict['CY'] = ROOT.TH1D(str1 +  "Candidate Y", str2 + "Neutron Candidate Y Distribution; Y-Position (cm);", 200, ymin, ymax  )
+    hDict['CZ'] = ROOT.TH1D(str1 +  "Candidate Z", str2 + "Neutron Candidate Z Distribution; Z-Position (cm);", 200, zmin, zmax  )
+    hDict['CXY']= ROOT.TH2D(str1 +  "Candidate XvY", str2 + "Neutron Candidate XY Distribution; Y-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, ymin, ymax )
+    hDict['CXZ']= ROOT.TH2D(str1 +  "Candidate XvZ", str2 + "Neutron Candidate XZ Distribution; Z-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, zmin, zmax )
+    hDict['CYZ']= ROOT.TH2D(str1 +  "Candidate YvZ", str2 + "Neutron Candidate YZ Distribution; Z-Position (cm); Y-Position (cm)", 200, ymin, ymax, 200, zmin, zmax )
     hDict['CT'] = ROOT.TH1D(str1 +  "Candidate RTime", str2 + "Neutron Candidate Time Distribution (Relative to Nu Vertex); Time (ns);", 100, tmin, tmax)
     hDict['CR'] = ROOT.TH1D(str1 +  "Candidate Distance from Nu VtX",str2 + "Candidate Distance from Nu Vertex Distribution; Distance (cm);", 100, rmin, rmax  )
 
-    hDict['CVel'] = ROOT.TH1D(str1 + 'Candidate Velocity', 'Candidate Beta Distribution; Beta;', 100, 0, 1)
+    hDict['CVel'] = ROOT.TH1D(str1 + 'Candidate Velocity', 'Candidate Beta Distribution; Beta;', 1000, 0, 1)
     Nmin = 0; Nmax = 0
     TNmin = 0; TNmax = 0
-    hDict['TrueNCvNC'] = ROOT.TH2D(str1 + 'NoTrueNCvNC', 'Number of True Neutron Candidates vs Neutron Candidates; Number of Neutron Candidates; Number of True Neutrons', 100, Tmin, Tmax, 100, TNmin, TNmax)
+#    hDict['TrueNCvNC'] = ROOT.TH2D(str1 + 'NoTrueNCvNC', 'Number of True Neutron Candidates vs Neutron Candidates; Number of Neutron Candidates; Number of True Neutrons', 100, Tmin, Tmax, 100, TNmin, TNmax)
 
     return hDict
 
@@ -134,7 +134,7 @@ def Fill_Candidate_Info(Plot_Dict, Candidates, vertex):
         cpost = cluster.getTime(); diff = cluster.getPos() - vtx; cposr = sqrt(diff.Dot(diff))
         Plot_Dict['CX'].Fill(cposx); Plot_Dict['CY'].Fill(cposy); Plot_Dict['CZ'].Fill(cposz)
         Plot_Dict['CXY'].Fill(cposx,cposy); Plot_Dict['CXZ'].Fill(cposx, cposz); Plot_Dict['CYZ'].Fill(cposy, cposz)
-        Plot_Dict['CT'].Fill(cpost); Plot_Dict['CR'] = cposr
+        Plot_Dict['CT'].Fill(cpost); Plot_Dict['CR'].Fill(cposr)
         Plot_Dict['CVel'].Fill(abs(cposr/cpost)/c)
 
 def GetLayer(hit):
@@ -156,7 +156,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
     for ient in range(N):
         if ient % 1 == 0:
             print "Event %d of %d..." % (ient,N)
-	    if ient > 100:
+	    if ient > 1000:
 	        break;
         events.GetEntry(ient)
         for ivtx,vertex in enumerate(event.Primaries):
@@ -181,7 +181,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
             candidates = []
             for kk, hit in enumerate(ecal_hits):
-                print('hit %d of %d'%(kk, len(ecal_hits)))
+                #print('hit %d of %d'%(kk, len(ecal_hits)))
                 #print(tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
                 if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
@@ -255,10 +255,10 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
                 #STEP 1
 
-            print('I have made it here')
+            #print('I have made it here')
             merge_dict = {}
             for i in range(len(candidates)):
-                print('Candidate %d of %d'%(i, len(candidates)))
+                #print('Candidate %d of %d'%(i, len(candidates)))
                 clusteri = candidates[i]#; posi = clusteri.getPos()
                 hitsi = clusteri.getHits()
                 merge_dict[i] = []
@@ -277,7 +277,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             reduced_merges = []; reduced_keys = []
             for key1 in merge_dict:
                 if key1 not in reduced_keys:
-	        reduced_merges.append(merge_dict[key1])
+	            reduced_merges.append(merge_dict[key1])
                     reduced_keys.append(key1)
                     for key2 in merge_dict:
                         if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
@@ -310,7 +310,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             #for hit in candidate[key].getHits():
 
             candidates[key].UpdateTruth()
-            if candidate[key].getTruePDG() == 2112:
+            if candidates[key].getTruePDG() == 2112:
                 CTrueN.append(candidates[key])
             else:
                 CTrueG.append(candidates[key])
@@ -340,17 +340,18 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
         Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
         tree.Fill()
 
-    sys.exit()
-    NOut = ROOT.TFile('TrueNeutron.root')
+    #sys.exit()
+    NOut = ROOT.TFile('TrueNeutron.root', "RECREATE")
     c = ROOT.TCanvas()
     for key in NPlot_Dict:
         if 'vtx' not in key:
+            print(key)
             NPlot_Dict[key].Write()
             NPlot_Dict[key].Draw()
             c.Print('TrueNeutron_%s.eps'%(key))
     del NOut
 
-    NuOut = ROOT.TFile('Neutrino.root')
+    NuOut = ROOT.TFile('Neutrino.root', "RECREATE")
     for key in NPlot_Dict:
         if 'vtx' in key:
             NPlot_Dict[key].Write()
@@ -358,7 +359,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             c.Print('%s.eps'%key)
     del NuOut
 
-    GOut = ROOT.TFile('TruePhoton.root')
+    GOut = ROOT.TFile('TruePhoton.root', "RECREATE")
     for key in GPlot_Dict:
         GPlot_Dict[key].Write()
         GPlot_Dict[key].Draw()
@@ -375,10 +376,10 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option('--outfile', help='Output file name', default="out.root")
     parser.add_option('--topdir', help='Input file top directory', default="/pnfs/dune/persistent/users/marshalc/neutronSim")
-    parser.add_option('--first_run', type=int, help='First run number', default=0)
-    parser.add_option('--last_run', type=int, help='Last run number', default=0)
+    parser.add_option('--first_run', type=int, help='First run number', default=1001)
+    parser.add_option('--last_run', type=int, help='Last run number', default=1001)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
-    parser.add_option('--geom',help='top volume of interactions', default="DetEnclosure")
+    parser.add_option('--geom',help='top volume of interactions', default="GArTPC")
 
     # python analyze --topdir /pnfs/dune/persistent/users/marshalc/neutronSim/EDep --first_run 0 --last_run 0 --geom DetEnclosure --outfile out.root
 
