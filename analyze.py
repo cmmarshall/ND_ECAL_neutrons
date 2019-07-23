@@ -143,6 +143,51 @@ def GetLayer(hit):
     decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
     return decomp[0]
 
+def MergeClusters(candidates):
+    merge_dict = {}
+    for i in range(len(candidates)):
+        #print('Candidate %d of %d'%(i, len(candidates)))
+        clusteri = candidates[i]#; posi = clusteri.getPos()
+        hitsi = clusteri.getHits()
+        merge_dict[i] = []
+        for j in range(len(candidates)):
+            clusterj = candidates[j];# posj = clusterj.getPos()
+            hitsj = clusterj.getHits()
+            for hiti in hitsi:
+                for hitj in hitsj:
+                    posi = hiti.getPos(); posj = hitj.getPos()
+                    diff = posi - posj; distance = sqrt(diff.Dot(diff))
+                    if distance < Cluster_Threshold:
+                        merge_dict[i].append(j)
+                        break; break;
+
+    #STEP 2
+    reduced_merges = []; reduced_keys = []
+    for key1 in merge_dict:
+        if key1 not in reduced_keys:
+        reduced_merges.append(merge_dict[key1])
+            reduced_keys.append(key1)
+            for key2 in merge_dict:
+                if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
+                    reduced_keys.append(key2)
+                    reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
+
+    #STEP 3
+    new_candidates = []
+    for thing in reduced_merges:
+        if len(thing) == 1:
+            new_candidates.append(candidates[thing[0]])
+        else:
+            output_cluster = candidates[thing[0]]
+            for i in range(1,len(thing)):
+#			    print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
+                output_cluster+=candidates[thing[i]]
+            new_candidates.append(output_cluster)
+    return new_candidates
+
+
+
+
 def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
     offset = [ 0., 305., 5. ]
 
@@ -249,48 +294,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 #-------------MERGE CLUSTERS------------#
                 #---------------------------------------#
 
-                #STEP 1
-
-            #print('I have made it here')
-            merge_dict = {}
-            for i in range(len(candidates)):
-                #print('Candidate %d of %d'%(i, len(candidates)))
-                clusteri = candidates[i]#; posi = clusteri.getPos()
-                hitsi = clusteri.getHits()
-                merge_dict[i] = []
-                for j in range(len(candidates)):
-                    clusterj = candidates[j];# posj = clusterj.getPos()
-                    hitsj = clusterj.getHits()
-                    for hiti in hitsi:
-                        for hitj in hitsj:
-                            posi = hiti.getPos(); posj = hitj.getPos()
-                            diff = posi - posj; distance = sqrt(diff.Dot(diff))
-                            if distance < Cluster_Threshold:
-                                merge_dict[i].append(j)
-                                break; break;
-
-            #STEP 2
-            reduced_merges = []; reduced_keys = []
-            for key1 in merge_dict:
-                if key1 not in reduced_keys:
-	            reduced_merges.append(merge_dict[key1])
-                    reduced_keys.append(key1)
-                    for key2 in merge_dict:
-                        if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
-                            reduced_keys.append(key2)
-                            reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
-
-            #STEP 3
-            new_candidates = []
-            for thing in reduced_merges:
-                if len(thing) == 1:
-                    new_candidates.append(candidates[thing[0]])
-                else:
-                    output_cluster = candidates[thing[0]]
-                    for i in range(1,len(thing)):
-#			    print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
-                        output_cluster+=candidates[thing[i]]
-                    new_candidates.append(output_cluster)
+            MergeClusters(candidates)
             candidates = new_candidates
 
 
