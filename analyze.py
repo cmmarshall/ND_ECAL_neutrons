@@ -143,7 +143,7 @@ def GetLayer(hit):
     decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
     return decomp[0]
 
-def MergeClusters(candidates):
+def MergeClusters(candidates, Cluster_Threshold):
     merge_dict = {}
     for i in range(len(candidates)):
         #print('Candidate %d of %d'%(i, len(candidates)))
@@ -165,7 +165,7 @@ def MergeClusters(candidates):
     reduced_merges = []; reduced_keys = []
     for key1 in merge_dict:
         if key1 not in reduced_keys:
-        reduced_merges.append(merge_dict[key1])
+            reduced_merges.append(merge_dict[key1])
             reduced_keys.append(key1)
             for key2 in merge_dict:
                 if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
@@ -180,7 +180,7 @@ def MergeClusters(candidates):
         else:
             output_cluster = candidates[thing[0]]
             for i in range(1,len(thing)):
-#			    print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
+#               print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
                 output_cluster+=candidates[thing[i]]
             new_candidates.append(output_cluster)
     return new_candidates
@@ -198,7 +198,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 #    GPlot_Dict = Initialize_Plot_Dicts(str1 = '2', str2 = 'True Photon: ', includevtx = False )
 
     N = events.GetEntries()
-    for ient in range(N):
+    for ient in range(0, N):
         if ient % 1 == 0:
             print "Event %d of %d..." % (ient,N)
 	    if ient > 1000:
@@ -294,8 +294,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 #-------------MERGE CLUSTERS------------#
                 #---------------------------------------#
 
-            MergeClusters(candidates)
-            candidates = new_candidates
+            candidates = MergeClusters(candidates, Cluster_Threshold)
+            
 
 
         GetPurityData(candidates, ient )

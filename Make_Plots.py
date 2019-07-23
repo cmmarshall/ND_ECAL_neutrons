@@ -15,16 +15,16 @@ import random
 
 
 class NeutronCandidate:
-    def __init__(self, entry, index, source):
+    def __init__(self, entry, index):#, source):
         self.pos = ROOT.TVector3(entry.nPosX[index], entry.nPosY[index], entry.nPosZ[index])
         self.time = entry.nPosT[index]
         self.E = entry.nE[index]
         self.Emax = entry.nEmax[index]
         self.PDG = entry.nTruePDG[index]
-        self.isPrimary = entry.isPrimary[index]
+        self.isPrimary = entry.nIsPrimary[index]
         self.TrueKE = entry.nTrueKE[index]
         self.index = index
-        self.source = source
+#        self.source = source
     def getPos(self):
         return self.pos
     def getTime(self):
@@ -41,8 +41,8 @@ class NeutronCandidate:
         return self.TrueKE
     def getIndex(self):
         return self.index
-    def getSource(self):
-        return self.source
+#    def getSource(self):
+#        return self.source
 
 
 
@@ -80,7 +80,7 @@ def Initialize_Plot_Dicts(str1 = '', str2 = '', includevtx = True): #String 1 ca
     return hDict
 
 def Fill_Vertex_Info(Plot_Dict, vtx):
-    PosX = vertex.X(); PosY = vtx.Y(); PosZ = vertex.Z()
+    PosX = vtx.X(); PosY = vtx.Y(); PosZ = vtx.Z()
     Plot_Dict['vtxPosX'].Fill(PosX)
     Plot_Dict['vtxPosY'].Fill(PosY)
     Plot_Dict['vtxPosZ'].Fill(PosZ)
@@ -90,7 +90,7 @@ def Fill_Vertex_Info(Plot_Dict, vtx):
 
 def Fill_Candidate_Info(Plot_Dict, Candidates, vertex):
     c = 29.9792# in cm/ns
-    vtx = ROOT.TVector3(vertex.Position.X()/10., vertex.Position.Y()/10., vertex.Position.Z()/10.)
+    vtx = ROOT.TVector3(vertex.X() , vertex.Y(), vertex.Z())
     for cluster in Candidates:
         cposx = cluster.getPos().X(); cposy = cluster.getPos().Y(); cposz = cluster.getPos().Z()
         cpost = cluster.getTime(); diff = cluster.getPos() - vtx; cposr = sqrt(diff.Dot(diff))
@@ -104,12 +104,12 @@ def loop(tree):
     GPlot_Dict = Initialize_Plot_Dicts(str1 = '2', str2 = 'True Photon: ', includevtx = False )
     for entry in tree:
         vtx = ROOT.TVector3(entry.vtxX, entry.vtxY, entry.vtxZ)
-        Fill_Vertex_Info(NPlot_Dict)
+        Fill_Vertex_Info(NPlot_Dict, vtx)
         Candidates = [NeutronCandidate(entry, index) for index in range(entry.nCandidates)]
         TrueNeutronC = [cluster for cluster in Candidates if cluster.PDG == 2112]
         TruePhotonC = [cluster for cluster in Candidates if cluster.PDG == 22]
-        Fill_Candidate_Info(NPlot_Dict, TrueNeutronC)
-        Fill_Candidate_Info(GPlot_Dict, TruePhotonC)
+        Fill_Candidate_Info(NPlot_Dict, TrueNeutronC, vtx)
+        Fill_Candidate_Info(GPlot_Dict, TruePhotonC, vtx)
     NOut = ROOT.TFile('TrueNeutron.root', "RECREATE")
     c = ROOT.TCanvas()
     for key in NPlot_Dict:
@@ -145,6 +145,6 @@ if __name__ == "__main__":
     (args, dummy) = parser.parse_args()
     File_Exists = path.exists(args.infile)
     if File_Exists:
-        InFile = ROOT.TFile('%s.root'%File_Exists)
+        InFile = ROOT.TFile('%s'%args.infile)
         tree = InFile.Get('tree')
         loop(tree)
