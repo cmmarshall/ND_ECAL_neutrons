@@ -149,8 +149,8 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
     event = ROOT.TG4Event()
     events.SetBranchAddress("Event",ROOT.AddressOf(event))
 
-    NPlot_Dict = Initialize_Plot_Dicts(str1 = '1', str2 = 'True Neutron: ')
-    GPlot_Dict = Initialize_Plot_Dicts(str1 = '2', str2 = 'True Photon: ', includevtx = False )
+#    NPlot_Dict = Initialize_Plot_Dicts(str1 = '1', str2 = 'True Neutron: ')
+#    GPlot_Dict = Initialize_Plot_Dicts(str1 = '2', str2 = 'True Photon: ', includevtx = False )
 
     N = events.GetEntries()
     for ient in range(N):
@@ -159,18 +159,15 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 	    if ient > 1000:
 	        break;
         events.GetEntry(ient)
+        candidates = []
         for ivtx,vertex in enumerate(event.Primaries):
-
             setToBogus()
-
             reaction = vertex.Reaction #vertex.GetReaction()
             t_vtxX[0] = vertex.Position.X()/10. #vertex.GetPosition().X()/10. # cm
             t_vtxY[0] = vertex.Position.Y()/10. #vertex.GetPosition().Y()/10.
             t_vtxZ[0] = vertex.Position.Z()/10. #vertex.GetPosition().Z()/10.
             # atomic mass of target
             t_vtxA[0] = int((reaction.split(";")[1].split(":")[1])[6:9])
-
-            Fill_Vertex_Info(NPlot_Dict, vertex)
 
             ecal_hits = []
             for det in event.SegmentDetectors:
@@ -179,7 +176,6 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
             ecal_hits = sorted(ecal_hits, key = lambda hit: GetLayer(hit))
 
-            candidates = []
             for kk, hit in enumerate(ecal_hits):
                 #print('hit %d of %d'%(kk, len(ecal_hits)))
                 #print(tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
@@ -336,35 +332,9 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             if t_nCandidates[0] == MAXCANDIDATES:
                 print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
                 break
-        Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
-        Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
+        #Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
+        #Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
         tree.Fill()
-
-    #sys.exit()
-    NOut = ROOT.TFile('TrueNeutron.root', "RECREATE")
-    c = ROOT.TCanvas()
-    for key in NPlot_Dict:
-        if 'vtx' not in key:
-            print(key)
-            NPlot_Dict[key].Write()
-            NPlot_Dict[key].Draw()
-            c.Print('TrueNeutron_%s.eps'%(key))
-    del NOut
-
-    NuOut = ROOT.TFile('Neutrino.root', "RECREATE")
-    for key in NPlot_Dict:
-        if 'vtx' in key:
-            NPlot_Dict[key].Write()
-            NPlot_Dict[key].Draw()
-            c.Print('%s.eps'%key)
-    del NuOut
-
-    GOut = ROOT.TFile('TruePhoton.root', "RECREATE")
-    for key in GPlot_Dict:
-        GPlot_Dict[key].Write()
-        GPlot_Dict[key].Draw()
-        c.Print('TruePhoton_%s.eps'%key)
-    del GOut
 
 
 

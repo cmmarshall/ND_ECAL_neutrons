@@ -75,6 +75,13 @@ def GetRecoE(Candidate,vtx):
     return mn*(gamma - 1)
 
 
+def GetRockEvts(t0):
+    rando = ROOT.TRandom3(random.randint(0,int(1E5)))
+    NoRockin10mus = 1
+    Mean_Rock_Evts = ((t0 + 100)/1000)*NoRockin10mus
+    Poisson_Rock = rando.Poisson(Mean_Rock_Evts)
+    return Poisson_Rock
+
 
 
 
@@ -82,6 +89,9 @@ def loop(GTree, BTree, Emin, dt, hReco, hFReco, hEffic):
     for entry in GTree: #Each Entry corresponds to a Neutrino
         vtx = ROOT.TVector3(entry.vtxX, entry.vtxY, entry.vtxZ)
         #pick a time from a flat distribution from 0, 10 microseconds
+        t0 = random.uniform(0,1000)
+
+
 
 
         vtxA = entry.vtxA
