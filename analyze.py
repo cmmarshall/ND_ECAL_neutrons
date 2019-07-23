@@ -299,7 +299,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
 
         #GetPurityData(candidates, ient )
-        Closest_Cluster_Distribution(candidates, ient)
+        #Closest_Cluster_Distribution(candidates, ient)
 
 
 
