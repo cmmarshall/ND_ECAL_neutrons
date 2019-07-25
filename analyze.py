@@ -83,60 +83,6 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
-
-def Initialize_Plot_Dicts(str1 = '', str2 = '', includevtx = True): #String 1 can be whatever but string 2 should be "True Neutron: " or "True Photon: "
-    hDict = {}
-    xmin = -1000; ymin = -1000; zmin = -1000; Tmin = 0
-    xmax = 1000; ymax = 1000; zmax = 1000; Tmax = 1000
-
-    if includevtx:
-        hDict['vtxPosX'] = ROOT.TH1D(str1 + "Nu vtx X", "Nu Vertex X Distribution; X-Position (cm);", 200, xmin, xmax  )
-        hDict['vtxPosY'] = ROOT.TH1D(str1 + "Nu vtx Y", "Nu Vertex Y Distribution; Y-Position (cm);", 200, ymin, ymax  )
-        hDict['vtxPosZ'] = ROOT.TH1D(str1 + "Nu vtx Z", "Nu Vertex Z Distribution; Z-Position (cm);", 200, zmin, zmax  )
-        hDict['vtxPosXY']= ROOT.TH2D(str1 + "Nu vtx XvY", "Nu Vertex XY Distribution; Y-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, ymin, ymax )
-        hDict['vtxPosXZ']= ROOT.TH2D(str1 +  "Nu vtx XvZ", "Nu Vertex XZ Distribution; Z-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, zmin, zmax )
-        hDict['vtxPosYZ']= ROOT.TH2D(str1 + "Nu vtx YvZ", "Nu Vertex YZ Distribution; Z-Position (cm); Y-Position (cm)", 200, ymin, ymax, 200, zmin, zmax )
-        #hDict['vtxTime'] = ROOT.TH1D(str1 + "Nu vtx Time", "Nu Vertex Time Distribution; Time (ns);" 100, tmin, tmax)
-
-    xmin = -1000; ymin = -1000; zmin = -1000; tmin = 0
-    xmax = 1000; ymax = 1000; zmax = 1000; tmax = 1000
-    rmin = 0; rmax = 1000
-    hDict['CX'] = ROOT.TH1D(str1 +  "Candidate X", str2 + "Neutron Candidate X Distribution; X-Position (cm);", 200, xmin, xmax  )
-    hDict['CY'] = ROOT.TH1D(str1 +  "Candidate Y", str2 + "Neutron Candidate Y Distribution; Y-Position (cm);", 200, ymin, ymax  )
-    hDict['CZ'] = ROOT.TH1D(str1 +  "Candidate Z", str2 + "Neutron Candidate Z Distribution; Z-Position (cm);", 200, zmin, zmax  )
-    hDict['CXY']= ROOT.TH2D(str1 +  "Candidate XvY", str2 + "Neutron Candidate XY Distribution; Y-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, ymin, ymax )
-    hDict['CXZ']= ROOT.TH2D(str1 +  "Candidate XvZ", str2 + "Neutron Candidate XZ Distribution; Z-Position (cm); X-Position (cm)", 200, xmin, xmax, 200, zmin, zmax )
-    hDict['CYZ']= ROOT.TH2D(str1 +  "Candidate YvZ", str2 + "Neutron Candidate YZ Distribution; Z-Position (cm); Y-Position (cm)", 200, ymin, ymax, 200, zmin, zmax )
-    hDict['CT'] = ROOT.TH1D(str1 +  "Candidate RTime", str2 + "Neutron Candidate Time Distribution (Relative to Nu Vertex); Time (ns);", 100, tmin, tmax)
-    hDict['CR'] = ROOT.TH1D(str1 +  "Candidate Distance from Nu VtX",str2 + "Candidate Distance from Nu Vertex Distribution; Distance (cm);", 100, rmin, rmax  )
-
-    hDict['CVel'] = ROOT.TH1D(str1 + 'Candidate Velocity', 'Candidate Beta Distribution; Beta;', 1000, 0, 1)
-    Nmin = 0; Nmax = 0
-    TNmin = 0; TNmax = 0
-#    hDict['TrueNCvNC'] = ROOT.TH2D(str1 + 'NoTrueNCvNC', 'Number of True Neutron Candidates vs Neutron Candidates; Number of Neutron Candidates; Number of True Neutrons', 100, Tmin, Tmax, 100, TNmin, TNmax)
-
-    return hDict
-
-def Fill_Vertex_Info(Plot_Dict, vertex):
-    PosX = vertex.Position.X()/10.; PosY = vertex.Position.Y()/10.; PosZ = vertex.Position.Z()/10.
-    Plot_Dict['vtxPosX'].Fill(PosX)
-    Plot_Dict['vtxPosY'].Fill(PosY)
-    Plot_Dict['vtxPosZ'].Fill(PosZ)
-    Plot_Dict['vtxPosXY'].Fill(PosX, PosY)
-    Plot_Dict['vtxPosXZ'].Fill(PosX, PosZ)
-    Plot_Dict['vtxPosYZ'].Fill(PosY, PosZ)
-
-def Fill_Candidate_Info(Plot_Dict, Candidates, vertex):
-    c = 29.9792# in cm/ns
-    vtx = ROOT.TVector3(vertex.Position.X()/10., vertex.Position.Y()/10., vertex.Position.Z()/10.)
-    for cluster in Candidates:
-        cposx = cluster.getPos().X(); cposy = cluster.getPos().Y(); cposz = cluster.getPos().Z()
-        cpost = cluster.getTime(); diff = cluster.getPos() - vtx; cposr = sqrt(diff.Dot(diff))
-        Plot_Dict['CX'].Fill(cposx); Plot_Dict['CY'].Fill(cposy); Plot_Dict['CZ'].Fill(cposz)
-        Plot_Dict['CXY'].Fill(cposx,cposy); Plot_Dict['CXZ'].Fill(cposx, cposz); Plot_Dict['CYZ'].Fill(cposy, cposz)
-        Plot_Dict['CT'].Fill(cpost); Plot_Dict['CR'].Fill(cposr)
-        Plot_Dict['CVel'].Fill(abs(cposr/cpost)/c)
-
 def GetLayer(hit):
     node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
     Cell_Name = node.GetName()
@@ -184,9 +130,6 @@ def MergeClusters(candidates, Cluster_Threshold):
                 output_cluster+=candidates[thing[i]]
             new_candidates.append(output_cluster)
     return new_candidates
-
-
-
 
 def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
     offset = [ 0., 305., 5. ]
@@ -295,7 +238,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
                 #---------------------------------------#
 
             candidates = MergeClusters(candidates, Cluster_Threshold)
-            
+
 
 
         #GetPurityData(candidates, ient )

@@ -82,29 +82,48 @@ def GetRockEvts(t0):
     Poisson_Rock = rando.Poisson(Mean_Rock_Evts)
     return Poisson_Rock
 
+def GetHallEvts(t0):
+    rando = ROOT.TRandom3(random.randint(0,int(1E5)))
+    NoHallin10mus = 1
+    Mean_Hall_Evts = ((t0 + 100)/1000)*NoHallin10mus
+    Poisson_Hall = rando.Poisson(Mean_Hall_Evts)
+    return Poisson_Hall
 
 
 
-def loop(GTree, BTree, Emin, dt, hReco, hFReco, hEffic):
+def loop(GTree, RTree, HTree, Emin, dt, hReco, hFReco, hEffic):
     for entry in GTree: #Each Entry corresponds to a Neutrino
         vtx = ROOT.TVector3(entry.vtxX, entry.vtxY, entry.vtxZ)
+        vtxA = entry.vtxA
         #pick a time from a flat distribution from 0, 10 microseconds
         t0 = random.uniform(0,1000)
-
-
-
-
-        vtxA = entry.vtxA
         GCandidates = [NeutronCandidate(entry, index) for index in range(entry.nCandidates)]
-        Candidates = GCandidates
-        for Bentry in BTree:
-            #Poisson Distribute Rock Time and Poissomn Distribution Number of Rock Events
+        for cand in GCandidates:
+            cand.time+=t0
+            cand.time = random.normalvariate(cand.time, dt)
 
+        Candidates = GCandidates; NoMax = GetRockEvts(t0)
+        for No, Rentry in enumerate(RTree):
+            if No >= NoMax:
+                break;
+            RCandidates = [NeutronCandidate(Rentry, index) for index in range(Rentry.nCandidates)]
+            t1 = random.uniform(0,t0+100)
+            for cand in RCandidates:
+                cand.time+=t1
+                cand.time = random.normalvariate(cand.time, dt)
+            Candidates += RCandidates
 
-
-            #Time Shift the Background
-            BCandidates = [NeutronCandidate(Bentry, index) for index in range(Bentry.nCandidates)]
-            Candidates += BCandidates
+        NoMax = GetHallEvts(t0)
+        for No, Hentry in enumerate(HTree):
+            if No >= NoMax:
+                break;
+            HCandidates = [NeutronCandidate(Hentry, index) for index in range(Hentry.nCandidates)]]
+            t1 = random.uniform(0,t0+100)
+            for cand in HCandidates:
+                cand.time+=t1
+                cand.time = random.normalvariate(cand.time, dt)
+            Candidates += HCandidates
+        
         Candidates = sorted(Cone_Reject(Candidates, vtx), key = lambda cluster: random.normalvariate(cluster.getTime(), dt))
         RecoE = GetRecoE(Candidates[0], vtx)
 
