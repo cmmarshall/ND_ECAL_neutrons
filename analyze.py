@@ -359,6 +359,11 @@ if __name__ == "__main__":
 
     (args, dummy) = parser.parse_args()
 
+    rhcarg = "--rhc" if args.rhc else ""
+    cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
+    sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
+    the_POT = float(sp.communicate()[0])
+
     # make an output ntuple
     fout = ROOT.TFile( args.outfile, "RECREATE" )
     tree = ROOT.TTree( "tree","tree" )
@@ -413,14 +418,10 @@ if __name__ == "__main__":
         print "Adding: %s" % fname
         events.Add( fname )
 
-    print('I am here')
-    rhcarg = "--rhc" if args.rhc else ""
-    cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
-    sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
-    t_pot[0] = float(sp.communicate()[0])
-    meta.Fill()
-
-    loop( events, tgeo, tree )
     fout.cd()
+    t_pot[0] = the_POT
+
+    fout.cd()
+    loop( events, tgeo, tree )
     tree.Write()
     meta.Write()
