@@ -420,6 +420,7 @@ if __name__ == "__main__":
 
     fout.cd()
     t_pot[0] = the_POT
+    meta.Fill()
 
     fout.cd()
     loop( events, tgeo, tree )
