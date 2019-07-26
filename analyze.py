@@ -33,7 +33,8 @@ t_nNcell3MeV = array( 'i', MAXCANDIDATES*[0] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nIsPrimary = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
-
+t_nParTID = array('i', MAXCANDIDATES*[0])
+#t_nNodeSet = array(, MAXCANDIDATES*[0.])
 
 def intersection(list1, list2):
     return list(set(list1)&set(list2))
@@ -274,6 +275,7 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             t_nTruePDG[t_nCandidates[0]] = candidates[key].getTruePDG()
             t_nIsPrimary[t_nCandidates[0]] = isPrimary
             t_nTrueKE[t_nCandidates[0]] = candidates[key].getTrueKE()
+            t_nParTID[t_nCandidates[0]] = largestContrib
             t_nCandidates[0] += 1
 
             if t_nCandidates[0] == MAXCANDIDATES:
@@ -329,6 +331,8 @@ if __name__ == "__main__":
     tree.Branch( "nTruePDG", t_nTruePDG, "nTruePDG[nCandidates]/I" )
     tree.Branch( "nIsPrimary", t_nIsPrimary, "nIsPrimary[nCandidates]/I" )
     tree.Branch( "nTrueKE", t_nTrueKE, "nTrueKE[nCandidates]/D" )
+    tree.Branch( "nParTID", t_nParTID, "nParTID[nCandidates]/I")
+    #tree.Branch( "nNodeSet", )
 
     meta = ROOT.TTree( "potTree", "potTree" )
     t_pot = array( 'd', [0.] )

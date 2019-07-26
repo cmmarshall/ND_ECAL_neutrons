@@ -90,8 +90,14 @@ def GetHallEvts(t0):
     return Poisson_Hall
 
 
+def Initialize_Plot_Dict():
+    h_dict = {}
+    h_dict['Reco'] = ROOT.TH1D('Reco', 'Reconstructed Neutron Energy Distribution; Reconstructed Neutron Energy (MeV);', 5000,0, 700)
+    h_dict['FReco'] = ROOT.TH1D('Fractional_Reco', 'Fractional Reconstructed Energy Residual; Fractional Residual;', 500, 0, 5)
+    hEffic['Eff'] =  ROOT.TH1D('Efficiency', 'Reconstruction Efficiency; Efficiency;', 100, 0, 1)
 
-def loop(GTree, RTree, HTree, Emin, dt, hReco, hFReco, hEffic):
+
+def loop(GTree, RTree, HTree, Emin, dt, Plot_dict):
     for entry in GTree: #Each Entry corresponds to a Neutrino
         vtx = ROOT.TVector3(entry.vtxX, entry.vtxY, entry.vtxZ)
         vtxA = entry.vtxA
@@ -123,7 +129,7 @@ def loop(GTree, RTree, HTree, Emin, dt, hReco, hFReco, hEffic):
                 cand.time+=t1
                 cand.time = random.normalvariate(cand.time, dt)
             Candidates += HCandidates
-        
+
         Candidates = sorted(Cone_Reject(Candidates, vtx), key = lambda cluster: random.normalvariate(cluster.getTime(), dt))
         RecoE = GetRecoE(Candidates[0], vtx)
 
@@ -143,36 +149,35 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option('--outfile', help='Output File Name', default='FSout.root')
 
-    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='')
-    parser.add_option('--Gfileno', help='Gas Argon File Number', default='')
-    parser.add_option('--Bfile_str', help='Input Files for Background File String', default='')
-    parser.add_option('--Bfileno', help='Background File Number', default='')
+    parser.add_option('--topdir', help='Directory containing Input', default='/pnfs/dune/persistent/users/rsahay/neutronCandidates')
+    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='GArOut.root')
+    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='WorldOut.root')
+    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='DetOut.root')
     parser.add_option('--Emin', help='Energy Threshhold for Neutron Candidates', default= 5)
     parser.add_option('--dt', help='Time Resolution of our Detector', default=0.1)
 
     (args, dummy) = parser.parse_args()
-    Gfile_str = args.Gfile_str; Gfno = args.Gfileno
-    Bfile_str = args.Bfile_str; Bfno= args.Bfileno
+    Gfile_str = args.Gfile_str;
+    Rfile_str = args.Rfile_str;
+    Hfile_str = args.Hfile_str;
     thresh = args.Emin; dt = args.dt
 
-    GExists = path.exists('%s%s.root'%(Gfile_str, Gfno))
-    BExists = path.exists('%s%s.root'%(Bfile_str, Bfno))
-    if GExists and BExists:
-        Gfile = ROOT.TFile('%s%s.root'%(Gfile_str, Gfno))
-        Bfile = ROOT.TFile('%s%s.root'%(Bfile_str, Bfno))
-    elif not GExists and BExists:
-        print('Error: GAr File does not exist')
-        sys.exit()
-    elif not BExists and GExists:
-        print('Error: Bkg File does not exist')
-        sys.exit()
+    GExists = path.exists('%s/%s'%(topdir, Gfile_str))
+    RExists = path.exists('%s/%s'%(topdir, Rfile_str))
+    HExists = path.exists('%s/%s'%(topdir, Hfile_str))
+
+    if GExists and RExists and HExists:
+        Gfile = ROOT.TFile('%s/%s'%(topdir, Gfile_str))
+        Rfile = ROOT.TFile('%s/%s'%(topdir, Rfile_str))
+        Hfile = ROOT.TFile('%s/%s'%(topdir, Hfile_str))
     else:
-        print('Error: GAr File and Bkg File do not exist')
+        print('Does GAr File Exist:%r'%(GExists))
+        print('Does Rock File Exist:%r'%(RExists))
+        print('Does Hall File Exist:%r'%(HExists))
         sys.exit()
 
-    GTree =  tfileG.Get('argon')
-    BTree = tfileB.Get('argon')
+    GTree =  Gfile.Get('argon')
+    RTree = Rfile.Get('argon')
+    HTree = Hfile.Get('argon')
 
-    hReco = ROOT.TH1D('Reco', 'Reconstructed Neutron Energy Distribution; Reconstructed Neutron Energy (MeV);', 5000,0, 700)
-    hFReco = ROOT.TH1D('Fractional_Reco', 'Fractional Reconstructed Energy Residual; Fractional Residual;', 500, 0, 5)
-    hEffic = ROOT.TH1D('Efficiency', 'Reconstruction Efficiency; Efficiency;', 100, 0, 1)
+    Plot_Dict = Initialize_Plot_Dict()
