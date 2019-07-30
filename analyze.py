@@ -9,6 +9,7 @@ from array import array
 from math import sqrt
 import subprocess
 from Cluster_Module import *
+#import psutil
 #import numpy as np
 
 MAXCANDIDATES = 1000
@@ -145,8 +146,11 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
     for ient in range(0, N):
         if ient % 1 == 0:
             print "Event %d of %d..." % (ient,N)
-	    if ient > 1000:
-	        break;
+#	    if ient > 1000:
+#	        break;
+	
+
+
         events.GetEntry(ient)
         candidates = []
         for ivtx,vertex in enumerate(event.Primaries):
