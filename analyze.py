@@ -144,14 +144,16 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
 
     N = events.GetEntries()
     for ient in range(0, N):
-        if ient % 1 == 0:
-            print "Event %d of %d..." % (ient,N)
-#	    if ient > 1000:
-#	        break;
-	
-
-
         events.GetEntry(ient)
+
+        info = ROOT.ProcInfo_t()
+        ROOT.gSystem.GetProcInfo(info)
+        vm = info.fMemVirtual
+        rm = info.fMemResident
+
+        if ient % 1 == 0:
+            print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
+
         candidates = []
         for ivtx,vertex in enumerate(event.Primaries):
             setToBogus()
@@ -313,6 +315,8 @@ if __name__ == "__main__":
     sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
     the_POT = float(sp.communicate()[0])
 
+    
+
     # make an output ntuple
     fout = ROOT.TFile( args.outfile, "RECREATE" )
     tree = ROOT.TTree( "tree","tree" )
@@ -344,7 +348,7 @@ if __name__ == "__main__":
 
     tgeo = None
 
-    events = ROOT.TChain( "EDepSimEvents", "main event tree" )
+    #events = ROOT.TChain( "EDepSimEvents", "main event tree" )
 
     neutrino = "neutrino" if not args.rhc else "antineutrino"
     horn = "FHC" if not args.rhc else "RHC"
@@ -358,22 +362,20 @@ if __name__ == "__main__":
             print "Can't access file: %s" % fname
             continue
         tf = ROOT.TFile( fname )
-        if tf.TestBit(ROOT.TFile.kRecovered):
-            print "File is crap: %s" % fname
-            continue
+        events = tf.Get( "EDepSimEvents" )
 
         if tgeo is None:
             tf.MakeProject("EDepSimEvents","*","RECREATE++")
             tgeo = tf.Get( "EDepSimGeometry" )
 
-        print "Adding: %s" % fname
-        events.Add( fname )
+        print "Looping over: %s" % fname
+        fout.cd()
+        loop( events, tgeo, tree )
+        tf.Close()
 
     fout.cd()
     t_pot[0] = the_POT
     meta.Fill()
 
-    fout.cd()
-    loop( events, tgeo, tree )
     tree.Write()
     meta.Write()
