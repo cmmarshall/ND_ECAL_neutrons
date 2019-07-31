@@ -13,6 +13,7 @@ from Cluster_Module import *
 #import numpy as np
 
 MAXCANDIDATES = 1000
+MAXNEUTRONS = 100
 
 # Output TTree array variables
 t_run = array( 'i', [0] )
@@ -27,15 +28,13 @@ t_nPosY = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosT = array( 'd', MAXCANDIDATES*[0.] )
 t_nE = array( 'd', MAXCANDIDATES*[0.] )
-t_nEmax = array( 'd', MAXCANDIDATES*[0.] )
-t_nNcell = array( 'i', MAXCANDIDATES*[0] )
-t_nNcell1MeV = array( 'i', MAXCANDIDATES*[0] )
-t_nNcell3MeV = array( 'i', MAXCANDIDATES*[0] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
-t_nIsPrimary = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
 t_nParTID = array('i', MAXCANDIDATES*[0])
-#t_nNodeSet = array(, MAXCANDIDATES*[0.])
+t_pNeutrons = array( 'i', [0] )
+t_pTID = array( 'i', MAXNEUTRONS*[0] )
+t_pKE = array( 'd', MAXNEUTRONS*[0.] )
+
 
 def intersection(list1, list2):
     return list(set(list1)&set(list2))
@@ -49,6 +48,7 @@ def setToBogus():
     t_vtxZ[0] = 0.
     t_vtxA[0] = 0
     t_nCandidates[0] = 0
+    t_pNeutrons[0] = 0
 
 # return track ID of most immediate neutron parent, if there is one (otherwise return 0)
 def neutronParent( event, tid ):
@@ -85,62 +85,10 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
-def GetLayer(hit):
-    node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
-    Cell_Name = node.GetName()
-    decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
-    return decomp[0]
-
-def MergeClusters(candidates, Cluster_Threshold):
-    merge_dict = {}
-    for i in range(len(candidates)):
-        #print('Candidate %d of %d'%(i, len(candidates)))
-        clusteri = candidates[i]#; posi = clusteri.getPos()
-        hitsi = clusteri.getHits()
-        merge_dict[i] = []
-        for j in range(len(candidates)):
-            clusterj = candidates[j];# posj = clusterj.getPos()
-            hitsj = clusterj.getHits()
-            for hiti in hitsi:
-                for hitj in hitsj:
-                    posi = hiti.getPos(); posj = hitj.getPos()
-                    diff = posi - posj; distance = sqrt(diff.Dot(diff))
-                    if distance < Cluster_Threshold:
-                        merge_dict[i].append(j)
-                        break; break;
-
-    #STEP 2
-    reduced_merges = []; reduced_keys = []
-    for key1 in merge_dict:
-        if key1 not in reduced_keys:
-            reduced_merges.append(merge_dict[key1])
-            reduced_keys.append(key1)
-            for key2 in merge_dict:
-                if len(intersection(reduced_merges[len(reduced_merges)-1], merge_dict[key2])) > 0:
-                    reduced_keys.append(key2)
-                    reduced_merges[len(reduced_merges)-1] = list( set(reduced_merges[len(reduced_merges)-1]) | set(merge_dict[key2]) )
-
-    #STEP 3
-    new_candidates = []
-    for thing in reduced_merges:
-        if len(thing) == 1:
-            new_candidates.append(candidates[thing[0]])
-        else:
-            output_cluster = candidates[thing[0]]
-            for i in range(1,len(thing)):
-#               print('Length of Cluster:%d'%(len(candidates[thing[i]].getHits())))
-                output_cluster+=candidates[thing[i]]
-            new_candidates.append(output_cluster)
-    return new_candidates
-
-def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD I SET THE DEFAULT THRESHOLD TO **
-    offset = [ 0., 305., 5. ]
+def loop( events, tgeo, tree, cluster_gap = 10 ):
 
     event = ROOT.TG4Event()
     events.SetBranchAddress("Event",ROOT.AddressOf(event))
-
-#    NPlot_Dict = Initialize_Plot_Dicts(str1 = '1', str2 = 'True Neutron: ')
-#    GPlot_Dict = Initialize_Plot_Dicts(str1 = '2', str2 = 'True Photon: ', includevtx = False )
 
     N = events.GetEntries()
     for ient in range(0, N):
@@ -151,12 +99,14 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
         vm = info.fMemVirtual
         rm = info.fMemResident
 
-        if ient % 1 == 0:
+        if ient % 10 == 0:
             print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
 
-        candidates = []
         for ivtx,vertex in enumerate(event.Primaries):
+            clusters = []
+
             setToBogus()
+
             reaction = vertex.Reaction #vertex.GetReaction()
             t_vtxX[0] = vertex.Position.X()/10. #vertex.GetPosition().X()/10. # cm
             t_vtxY[0] = vertex.Position.Y()/10. #vertex.GetPosition().Y()/10.
@@ -164,131 +114,101 @@ def loop( events, tgeo, tree, Cluster_Threshold = 10 ): # ** CHRIS: WHAT SHOULD 
             # atomic mass of target
             t_vtxA[0] = int((reaction.split(";")[1].split(":")[1])[6:9])
 
+            # Save true primary neutrons for efficiency determination
+            for ipart,particle in enumerate(vertex.Particles):
+                mom = particle.Momentum
+                pdg = particle.PDGCode
+                tid = particle.TrackId
+                if pdg == 2112:
+                    t_pTID[t_pNeutrons[0]] = tid
+                    t_pKE[t_pNeutrons[0]] = mom.E() - mom.M()
+                    t_pNeutrons[0] += 1
+
+
             ecal_hits = []
             for det in event.SegmentDetectors:
                 if "ECal" in det.first: # there are several sub-detectors that make up the ECal
                     ecal_hits += det.second
 
-            ecal_hits = sorted(ecal_hits, key = lambda hit: GetLayer(hit))
+            # Sort deposits by ECAL layer so that cluster merge logic occurs in predictable order?
+            #ecal_hits = sorted(ecal_hits, key = lambda edep: GetLayer(edep))
 
-            for kk, hit in enumerate(ecal_hits):
-                #print('hit %d of %d'%(kk, len(ecal_hits)))
-                #print(tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z()))
-                if hit.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
+            # Loop over edep-sim "hits", call it edep to avoid confusin with Hit class
+            for kk, edep in enumerate(ecal_hits):
+                if edep.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
-                hStart = ROOT.TVector3( hit.Start.X()/10., hit.Start.Y()/10., hit.Start.Z()/10. )
-                hStop = ROOT.TVector3( hit.Stop.X()/10., hit.Stop.Y()/10., hit.Stop.Z()/10. )
+                hStart = ROOT.TVector3( edep.Start.X()/10., edep.Start.Y()/10., edep.Start.Z()/10. )
+                #hStop = ROOT.TVector3( edep.Stop.X()/10., edep.Stop.Y()/10., edep.Stop.Z()/10. )
 
                 #--------------DETERMINE PARENT PARTICLE--------------------#
-                parent = None; neutral_tid = -1
-                for ii in range(len(hit.Contrib)):
-                    tid = hit.Contrib[ii]
-                    photon_tid = photonParent(event, tid); neutron_tid = neutronParent( event, tid )
+                neutral_tid = -1
+                edep_tid = 0
+                for ii in range(len(edep.Contrib)):
+                    tid = edep.Contrib[ii]
+                    photon_tid = photonParent(event, tid)
+                    neutron_tid = neutronParent(event, tid)
                     if neutron_tid > 0:
-                        parent = 'n'; neutral_tid = neutron_tid
-                    else:
-                        if photon_tid > 1:
-                            parent = 'g'; neutral_tid = photon_tid
-                        else:
-                            parent = None; neutral_tid = photon_tid
+                        neutral_tid = neutron_tid
+                        edep_tid = tid
+                    elif neutral_tid <= 0:
+                        neutral_tid = photon_tid
+                        edep_tid = tid
 
-                    #----------------------------------------------------------#
-                    #-------------------\\\\\Clustering\\\\\-------------------#
-                    #----------------------------------------------------------#
-                    if parent is not None:
-                        #Define Proposed Hit
-                        node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
-                        mom = event.Trajectories[neutral_tid].InitialMomentum
-                        New_Hit = Hit(hStart, node.GetName(), hit.EnergyDeposit, hit.Start[3], parent, int(neutral_tid), mom.E() - mom.M())
+                #----------------------------------------------------------#
+                #-------------------\\\\\Clustering\\\\\-------------------#
+                #----------------------------------------------------------#
+                if neutral_tid > 0: # ensure neutral parent
 
+                    node = tgeo.FindNode( edep.Start.X(), edep.Start.Y(), edep.Start.Z())
+                    this_hit = Hit(hStart, node.GetName(), edep.EnergyDeposit, edep.Start[3], event.Trajectories[edep_tid].PDGCode, neutral_tid)
 
-                        #Figure out what clusters our hit is in
-                        inCluster = False; inwhichClusters= []
-                        for i, cluster in enumerate(candidates):
-                            if New_Hit in cluster:
-                                inwhichClusters.append(i)
+                    # Should this hit be added to any existing clusters?
+                    # It is possible that this hit can be in multiple clusters, in which case they should be merged
+                    inWhichClusters = [] # cluster indices of clusters that this hit matches
+                    for i,cluster in enumerate(clusters):
+                        if cluster.isInCluster(this_hit):
+                            inWhichClusters.append(i)
 
+                    # If this hit belongs in multiple clusters, they all need to be merged
+                    # order of hits in clusters is totally irrelevant, so just merge them into the first one
+                    if len(inWhichClusters) > 1:
+                        idx = inWhichClusters[0]
+                        for i in range(len(inWhichClusters)-1, 0, -1):
+                            clusters[idx].mergeCluster( clusters[inWhichClusters[i]] )
+                            clusters.pop(inWhichClusters[i]) # reverse order loop assures indices don't get messed up
+                        clusters[idx].addHit(this_hit) # finally, add the hit that caused the merger
+                    elif len(inWhichClusters) == 1:
+                        # hit is in only one cluster, so just add the hit
+                        idx = inWhichClusters[0]
+                        clusters[idx].addHit(this_hit)
+                    elif len(inWhichClusters) == 0:
+                        # make a new cluster with this hit
+                        this_cluster = Cluster(cluster_gap)
+                        this_cluster.addHit(this_hit)
+                        clusters.append(this_cluster)                                
 
-                        #If hit belongs to multiple clusters merge the clusters
-                        if len(inwhichClusters) > 1:
-                            output_cluster = candidates[inwhichClusters[0]]
-                            for i in range(1, len(inwhichClusters)):
-                                index = inwhichClusters[i]
-                                this_cluster = candidates[index]
-                                output_cluster += this_cluster
-                            output_cluster.addHit(New_Hit)
-
-                            #Make sure to remove old clusters
-                            inwhichClusters = sorted(inwhichClusters); pindex = 0
-                            for i in range(len(inwhichClusters)):
-                                cindex = inwhichClusters[i] - pindex
-                                candidates.pop(cindex)
-                                pindex+=1
-                            #Append New Cluster
-                            candidates.append(output_cluster)
-
-
-                        #If hit only belongs to one cluster
-                        elif len(inwhichClusters) == 1:
-                            index = inwhichClusters[0]
-                            candidates[index].addHit(New_Hit)
-
-
-                        #If hit doesn't belong to any clusters
-                        else:
-                            c = NeutronCandidate()
-                            c.addHit(New_Hit)
-                            candidates.append(c)
-
-                #---------------------------------------#
-                #-------------MERGE CLUSTERS------------#
-                #---------------------------------------#
-
-            candidates = MergeClusters(candidates, Cluster_Threshold)
-
-
-
-        #GetPurityData(candidates, ient )
-        #Closest_Cluster_Distribution(candidates, ient)
-
-
-
+        # Fill the output ntuple
         t_nCandidates[0] = 0
-        CTrueN = []; CTrueG =[]
-        for key in range(len(candidates)):
-            #isPrimary = (event.Trajectories[key].ParentId == -1)
-            #for hit in candidate[key].getHits():
+        for cluster in clusters:
 
-            candidates[key].UpdateTruth()
-            if candidates[key].getTruePDG() == 2112:
-                CTrueN.append(candidates[key])
-            else:
-                CTrueG.append(candidates[key])
+            cluster.CalcStuff()
 
-            neutral_tids = list([thing.getNeutralTID() for thing in candidates[key].getHits()])
-            #neutral_tids = list(np.array(candidate[key].getHits())[:,2])
-            largestContrib = max(set(neutral_tids), key=neutral_tids.count)
-            isPrimary = (event.Trajectories[largestContrib].ParentId == -1)
-            t_nPosX[t_nCandidates[0]] = candidates[key].getPos().x()
-            t_nPosY[t_nCandidates[0]] = candidates[key].getPos().y()
-            t_nPosZ[t_nCandidates[0]] = candidates[key].getPos().z()
-            t_nPosT[t_nCandidates[0]] = candidates[key].getTime()
-            t_nE[t_nCandidates[0]] = candidates[key].getEnergy()
-            t_nEmax[t_nCandidates[0]] = candidates[key].getMaxCell()
-            t_nNcell[t_nCandidates[0]] = candidates[key].getNcell()
-            t_nNcell1MeV[t_nCandidates[0]] = candidates[key].getNcellCut(1.)
-            t_nNcell3MeV[t_nCandidates[0]] = candidates[key].getNcellCut(3.)
-            t_nTruePDG[t_nCandidates[0]] = candidates[key].getTruePDG()
-            t_nIsPrimary[t_nCandidates[0]] = isPrimary
-            t_nTrueKE[t_nCandidates[0]] = candidates[key].getTrueKE()
-            t_nParTID[t_nCandidates[0]] = largestContrib
+            t_nPosX[t_nCandidates[0]] = cluster.getCentroid().x()
+            t_nPosY[t_nCandidates[0]] = cluster.getCentroid().y()
+            t_nPosZ[t_nCandidates[0]] = cluster.getCentroid().z()
+            t_nPosT[t_nCandidates[0]] = cluster.getTime()
+            t_nE[t_nCandidates[0]] = cluster.getEnergy()
+            t_nTruePDG[t_nCandidates[0]] = cluster.getTruePDG()
+            t_nParTID[t_nCandidates[0]] = cluster.getTrueParent()
+            parent = event.Trajectories[cluster.getTrueParent()]
+            t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
+
             t_nCandidates[0] += 1
 
             if t_nCandidates[0] == MAXCANDIDATES:
                 print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
                 break
-        #Fill_Candidate_Info(NPlot_Dict, CTrueN, vertex)
-        #Fill_Candidate_Info(GPlot_Dict, CTrueG, vertex)
+
         tree.Fill()
 
 
@@ -314,8 +234,7 @@ if __name__ == "__main__":
     cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
     sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
     the_POT = float(sp.communicate()[0])
-
-    
+   
 
     # make an output ntuple
     fout = ROOT.TFile( args.outfile, "RECREATE" )
@@ -332,15 +251,12 @@ if __name__ == "__main__":
     tree.Branch( "nPosZ", t_nPosZ, "nPosZ[nCandidates]/D" )
     tree.Branch( "nPosT", t_nPosT, "nPosT[nCandidates]/D" )
     tree.Branch( "nE", t_nE, "nE[nCandidates]/D" )
-    tree.Branch( "nEmax", t_nEmax, "nEmax[nCandidates]/D" )
-    tree.Branch( "nNcell", t_nNcell, "nNcell[nCandidates]/I" )
-    tree.Branch( "nNcell1MeV", t_nNcell1MeV, "nNcell1MeV[nCandidates]/I" )
-    tree.Branch( "nNcell3MeV", t_nNcell3MeV, "nNcell3MeV[nCandidates]/I" )
     tree.Branch( "nTruePDG", t_nTruePDG, "nTruePDG[nCandidates]/I" )
-    tree.Branch( "nIsPrimary", t_nIsPrimary, "nIsPrimary[nCandidates]/I" )
     tree.Branch( "nTrueKE", t_nTrueKE, "nTrueKE[nCandidates]/D" )
     tree.Branch( "nParTID", t_nParTID, "nParTID[nCandidates]/I")
-    #tree.Branch( "nNodeSet", )
+    tree.Branch( "pNeutrons", t_pNeutrons, "pNeutrons/I" )
+    tree.Branch( "pTID", t_pTID, "pTID[pNeutrons]/I")
+    tree.Branch( "pKE", t_pKE, "pKE[pNeutrons]/D")
 
     meta = ROOT.TTree( "potTree", "potTree" )
     t_pot = array( 'd', [0.] )
@@ -348,16 +264,12 @@ if __name__ == "__main__":
 
     tgeo = None
 
-    #events = ROOT.TChain( "EDepSimEvents", "main event tree" )
-
     neutrino = "neutrino" if not args.rhc else "antineutrino"
     horn = "FHC" if not args.rhc else "RHC"
 
     t_pot[0] = 0.
     for run in range( args.first_run, args.last_run+1 ):
         fname = "%s/EDep/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
-        print('Does the file %s exist: %r'%(fname, os.path.exists(fname)))
-        print('Do you have access to %s:%r'%(fname, os.access( fname, os.R_OK )))
         if not os.access( fname, os.R_OK ):
             print "Can't access file: %s" % fname
             continue
