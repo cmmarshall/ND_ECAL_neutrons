@@ -312,8 +312,8 @@ if __name__ == "__main__":
 
     rhcarg = "--rhc" if args.rhc else ""
     cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
-    sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
-    the_POT = float(sp.communicate()[0])
+#    sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
+#    the_POT = float(sp.communicate()[0])
 
     
 
