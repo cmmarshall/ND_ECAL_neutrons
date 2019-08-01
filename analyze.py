@@ -40,6 +40,14 @@ def intersection(list1, list2):
     return list(set(list1)&set(list2))
 
 
+def GetLayer(hit):
+    node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
+    Cell_Name = node.GetName()
+    decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
+    return decomp[0]
+
+
+
 def setToBogus():
     t_run[0] = 0
     t_event[0] = 0
@@ -131,7 +139,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                     ecal_hits += det.second
 
             # Sort deposits by ECAL layer so that cluster merge logic occurs in predictable order?
-            #ecal_hits = sorted(ecal_hits, key = lambda edep: GetLayer(edep))
+            ecal_hits = sorted(ecal_hits, key = lambda edep: GetLayer(edep))
 
             # Loop over edep-sim "hits", call it edep to avoid confusin with Hit class
             for kk, edep in enumerate(ecal_hits):
@@ -225,7 +233,7 @@ if __name__ == "__main__":
     parser.add_option('--last_run', type=int, help='Last run number', default=1001)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
     parser.add_option('--geom',help='top volume of interactions', default="GArTPC")
-
+    parser.add_option('--cgap',help='Set Cluster Gap', default=10.)
     # python analyze --topdir /pnfs/dune/persistent/users/marshalc/neutronSim/EDep --first_run 0 --last_run 0 --geom DetEnclosure --outfile out.root
 
     (args, dummy) = parser.parse_args()
@@ -282,7 +290,7 @@ if __name__ == "__main__":
 
         print "Looping over: %s" % fname
         fout.cd()
-        loop( events, tgeo, tree )
+        loop( events, tgeo, tree , cluster_gap = args.cgap)
         tf.Close()
 
     fout.cd()
