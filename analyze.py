@@ -9,8 +9,6 @@ from array import array
 from math import sqrt
 import subprocess
 from Cluster_Module import *
-#import psutil
-#import numpy as np
 
 MAXCANDIDATES = 1000
 MAXNEUTRONS = 100
@@ -22,12 +20,15 @@ t_vtxX = array( 'd', [0.] )
 t_vtxY = array( 'd', [0.] )
 t_vtxZ = array( 'd', [0.] )
 t_vtxA = array( 'i', [0] )
+t_ECAL_visE = array( 'd', [0.] )
 t_nCandidates = array( 'i', [0] )
 t_nPosX = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosY = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosT = array( 'd', MAXCANDIDATES*[0.] )
 t_nE = array( 'd', MAXCANDIDATES*[0.] )
+t_nNcell = array( 'i', MAXCANDIDATES*[0] )
+t_nMaxCell = array( 'd', MAXCANDIDATES*[0.] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
 t_nParTID = array('i', MAXCANDIDATES*[0])
@@ -47,6 +48,7 @@ def setToBogus():
     t_vtxY[0] = 0.
     t_vtxZ[0] = 0.
     t_vtxA[0] = 0
+    t_ECAL_visE[0] = 0.
     t_nCandidates[0] = 0
     t_pNeutrons[0] = 0
 
@@ -102,6 +104,8 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         if ient % 10 == 0:
             print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
 
+        t_event[0] = ient
+
         for ivtx,vertex in enumerate(event.Primaries):
             clusters = []
 
@@ -130,15 +134,15 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 if "ECal" in det.first: # there are several sub-detectors that make up the ECal
                     ecal_hits += det.second
 
-            # Sort deposits by ECAL layer so that cluster merge logic occurs in predictable order?
-            #ecal_hits = sorted(ecal_hits, key = lambda edep: GetLayer(edep))
+            t_ECAL_visE[0] = 0.
 
             # Loop over edep-sim "hits", call it edep to avoid confusin with Hit class
             for kk, edep in enumerate(ecal_hits):
                 if edep.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
                 hStart = ROOT.TVector3( edep.Start.X()/10., edep.Start.Y()/10., edep.Start.Z()/10. )
-                #hStop = ROOT.TVector3( edep.Stop.X()/10., edep.Stop.Y()/10., edep.Stop.Z()/10. )
+
+                t_ECAL_visE[0] += edep.EnergyDeposit
 
                 #--------------DETERMINE PARENT PARTICLE--------------------#
                 neutral_tid = -1
@@ -160,7 +164,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 if neutral_tid > 0: # ensure neutral parent
 
                     node = tgeo.FindNode( edep.Start.X(), edep.Start.Y(), edep.Start.Z())
-                    this_hit = Hit(hStart, node.GetName(), edep.EnergyDeposit, edep.Start[3], event.Trajectories[edep_tid].PDGCode, neutral_tid)
+                    this_hit = Hit(hStart, node.GetName(), edep.EnergyDeposit, edep.Start.T(), event.Trajectories[edep_tid].PDGCode, neutral_tid)
 
                     # Should this hit be added to any existing clusters?
                     # It is possible that this hit can be in multiple clusters, in which case they should be merged
@@ -200,6 +204,8 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
             t_nE[t_nCandidates[0]] = cluster.getEnergy()
             t_nTruePDG[t_nCandidates[0]] = cluster.getTruePDG()
             t_nParTID[t_nCandidates[0]] = cluster.getTrueParent()
+            t_nMaxCell[t_nCandidates[0]] = cluster.getMaxCell()
+            t_nNcell[t_nCandidates[0]] = cluster.getNcell(0.5)
             parent = event.Trajectories[cluster.getTrueParent()]
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
 
@@ -245,12 +251,15 @@ if __name__ == "__main__":
     tree.Branch( "vtxY", t_vtxY, "vtxY/D" )
     tree.Branch( "vtxZ", t_vtxZ, "vtxZ/D" )
     tree.Branch( "vtxA", t_vtxA, "vtxA/I" )
+    tree.Branch( "ECAL_visE", t_ECAL_visE, "ECAL_visE/D" )
     tree.Branch( "nCandidates", t_nCandidates, "nCandidates/I" )
     tree.Branch( "nPosX", t_nPosX, "nPosX[nCandidates]/D" )
     tree.Branch( "nPosY", t_nPosY, "nPosY[nCandidates]/D" )
     tree.Branch( "nPosZ", t_nPosZ, "nPosZ[nCandidates]/D" )
     tree.Branch( "nPosT", t_nPosT, "nPosT[nCandidates]/D" )
     tree.Branch( "nE", t_nE, "nE[nCandidates]/D" )
+    tree.Branch( "nNcell", t_nNcell, "nNcell[nCandidates]/I" )
+    tree.Branch( "nMaxCell", t_nMaxCell, "nMaxCell[nCandidates]/D" )
     tree.Branch( "nTruePDG", t_nTruePDG, "nTruePDG[nCandidates]/I" )
     tree.Branch( "nTrueKE", t_nTrueKE, "nTrueKE[nCandidates]/D" )
     tree.Branch( "nParTID", t_nParTID, "nParTID[nCandidates]/I")

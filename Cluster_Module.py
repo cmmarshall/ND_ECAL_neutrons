@@ -154,5 +154,19 @@ class Cluster:
             CalcStuff()
         return self.parent_tid
 
+    def getNcell(self, cut):
+        n = 0
+        for cell in self.cells:
+            if self.cells[cell] > cut:
+                n += 1
+        return n
+
+    def getMaxCell(self):
+        m = 0.
+        for cell in self.cells:
+            if self.cells[cell] > m:
+                m = self.cells[cell]
+        return m
+
 
 
