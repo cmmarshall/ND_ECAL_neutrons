@@ -36,11 +36,6 @@ t_pNeutrons = array( 'i', [0] )
 t_pTID = array( 'i', MAXNEUTRONS*[0] )
 t_pKE = array( 'd', MAXNEUTRONS*[0.] )
 
-
-def intersection(list1, list2):
-    return list(set(list1)&set(list2))
-
-
 def setToBogus():
     t_run[0] = 0
     t_event[0] = 0
@@ -231,7 +226,7 @@ if __name__ == "__main__":
     parser.add_option('--last_run', type=int, help='Last run number', default=1001)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
     parser.add_option('--geom',help='top volume of interactions', default="GArTPC")
-
+    parser.add_option('--cgap',help='Set Cluster Gap', default=10.)
     # python analyze --topdir /pnfs/dune/persistent/users/marshalc/neutronSim/EDep --first_run 0 --last_run 0 --geom DetEnclosure --outfile out.root
 
     (args, dummy) = parser.parse_args()
@@ -291,7 +286,7 @@ if __name__ == "__main__":
 
         print "Looping over: %s" % fname
         fout.cd()
-        loop( events, tgeo, tree )
+        loop( events, tgeo, tree, cluster_gap=float(args.cgap))
         tf.Close()
 
     fout.cd()
