@@ -40,11 +40,11 @@ def intersection(list1, list2):
     return list(set(list1)&set(list2))
 
 
-def GetLayer(hit):
-    node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
-    Cell_Name = node.GetName()
-    decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
-    return decomp[0]
+#def GetLayer(hit):
+#    node = tgeo.FindNode( hit.Start.X(), hit.Start.Y(), hit.Start.Z())
+#    Cell_Name = node.GetName()
+#    decomp = [int(s) for s in Cell_Name.split('_') if s.isdigit()]
+#    return decomp[0]
 
 
 
@@ -139,7 +139,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                     ecal_hits += det.second
 
             # Sort deposits by ECAL layer so that cluster merge logic occurs in predictable order?
-            ecal_hits = sorted(ecal_hits, key = lambda edep: GetLayer(edep))
+#            ecal_hits = sorted(ecal_hits, key = lambda edep: GetLayer(edep))
 
             # Loop over edep-sim "hits", call it edep to avoid confusin with Hit class
             for kk, edep in enumerate(ecal_hits):
@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
         print "Looping over: %s" % fname
         fout.cd()
-        loop( events, tgeo, tree , cluster_gap = args.cgap)
+        loop( events, tgeo, tree, cluster_gap=float(args.cgap))
         tf.Close()
 
     fout.cd()
