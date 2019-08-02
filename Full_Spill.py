@@ -17,25 +17,30 @@ from NTuple import *
 def dist(TVec1, TVec2):
     return (TVec1-TVec2).Mag()
 
-def Cone_Reject(Candidates, vtx): #Cand
-    Candidates = sorted(Candidates, key = lambda cluster: dist(vtx, cluster.getPos()))
-    output = []; rejec_clusters = []
-    for i, clusteri in enumerate(Candidates):
-        if i not in rejec_clusters:
-            for j, clusterj in enumerate(Candidates):
-                vtx_2_i = clusteri.getPos() - vtx; magi = sqrt(vtx_2_i.Dot(vtx_2_i))
-                vtx_2_j = clusterj.getPos() - vtx; magj = sqrt(vtx_2_j.Dot(vtx_2_j))
-                angle = acos(vtx_2_i.Dot(vtx_2_j)/(magi*magj))
-                if i != j and angle <= pi/6:
-                    rejec_clusters.append(j)
-            output.append(clusteri)
-    return output
+def Cone_Reject(cans, vtx):
+    candidates = sorted(cans, key = lambda cluster: dist(vtx, cluster.getPos()))
+    output = [] # candidate list after cone rejection
+    rejec_clusters = []
+    i = 0
+    while i < len(candidates):
+        vecti = candidates[i].getPos() - vtx
+        j = i+1
+        while j < len(candidates):
+            vectj = candidates[j].getPos() - vtx
+            angle = vecti.Angle(vectj)
+            if angle <= pi/6:
+                candidates.pop(j)
+            else:
+                j += 1
+        i += 1
+    return candidates
 
-
-def GetRecoE(Candidate,vtx):
+def GetRecoE(np,vtx,tof):
     c = 29.9792 # cm/ns
     mn = 939.565 # MeV/c2
-    beta = dist(Candidate.getPos(), vtx)/(c*Candidate.getTime())
+    beta = dist(np, vtx)/(c*tof)
+    if beta < 0. or beta >= 1.:
+        return None
     gamma = 1/sqrt(1 - beta**2);
     return mn*(gamma - 1)
 
@@ -64,6 +69,10 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict):
         R = sqrt((vtx.y()+217.)**2 + (vtx.z()-585.)**2) # YZ circle centered at (-217, 585)
         if R > 200. or abs(vtx.x()) > 200.: continue # x is centered -250, 250
 
+        # cone-filter the neutron candidates
+        gas_candidates = Cone_Reject(GasEvent.candidates, vtx)
+        continue
+
         # pick a time from a flat distribution from 0, 10 microseconds
         t0 = random.uniform(0.,10000.) # ns
         for cand in GasEvent.candidates:
@@ -87,6 +96,11 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict):
             for cand in RockEvent.candidates:
                 cand.nPosT += trock
                 cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
+
+                np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
+                reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
+                if reco_KE is not None: # physical neutron
+                    print "Rock background neutron of %1.1f MeV" % reco_KE
 
             irock += 1
             if irock == Nrock: # we've run out of rock events; loop again
