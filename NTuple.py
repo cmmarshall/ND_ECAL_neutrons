@@ -1,4 +1,5 @@
 from array import array
+from ROOT import TVector3
 
 MAXCANDIDATES = 1000
 MAXNEUTRONS = 100
@@ -61,6 +62,10 @@ class Candidate:
         self.nTruePDG = t_nTruePDG[idx]
         self.nTrueKE = t_nTrueKE[idx]
         self.nParTID = t_nParTID[idx]
+
+    def getPos(self):
+        pos = TVector3( self.nPosX, self.nPosY, self.nPosZ )
+        return pos
 
 class PrimaryNeutron:
     def __init__(self, idx):
