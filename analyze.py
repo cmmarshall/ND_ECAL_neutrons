@@ -227,12 +227,14 @@ if __name__ == "__main__":
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
     parser.add_option('--geom',help='top volume of interactions', default="GArTPC")
     parser.add_option('--cgap',help='Set Cluster Gap', default=10.)
+    parser.add_option('--grid',action='store_true', help='Grid mode')
     # python analyze --topdir /pnfs/dune/persistent/users/marshalc/neutronSim/EDep --first_run 0 --last_run 0 --geom DetEnclosure --outfile out.root
 
     (args, dummy) = parser.parse_args()
 
     rhcarg = "--rhc" if args.rhc else ""
-    cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg]
+    gridarg = "--grid" if args.grid else ""
+    cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg, gridarg]
     sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
     the_POT = float(sp.communicate()[0])
    
@@ -273,7 +275,11 @@ if __name__ == "__main__":
 
     t_pot[0] = 0.
     for run in range( args.first_run, args.last_run+1 ):
-        fname = "%s/EDep/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
+        fname = None
+        if args.grid:
+            fname = "%s.%d.edepsim.root" % (neutrino, run)
+        else:
+            fname = "%s/EDep/%s/%s/%s.%d.edepsim.root" % (args.topdir, horn, args.geom, neutrino, run)
         if not os.access( fname, os.R_OK ):
             print "Can't access file: %s" % fname
             continue

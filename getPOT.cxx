@@ -12,6 +12,7 @@ int main( int argc, char const *argv[] )
   std::string horn = "FHC";
   std::string neutrino = "neutrino";
   std::string geometry = "DetEnclosure";
+  bool grid = false;
 
   int i = 0;
   while( i < argc ) {
@@ -31,12 +32,17 @@ int main( int argc, char const *argv[] )
       horn = "RHC";
       neutrino = "antineutrino";
       i += 1;
+    } else if( argv[i] == std::string("--grid") ) {
+      grid = true;
+      i += 1;
     } else i++;
   }
 
   double pot = 0.;
   for( int run = first; run <= last; ++run ) {
-    TFile * tf = new TFile( Form("%s/GENIE/%s/%s/%s.%d.ghep.root",topdir.c_str(),horn.c_str(),geometry.c_str(),neutrino.c_str(),run) );
+    TFile * tf;
+    if( grid ) tf =  new TFile( Form("%s.%d.ghep.root",neutrino.c_str(),run) );
+    else       tf  = new TFile( Form("%s/GENIE/%s/%s/%s.%d.ghep.root",topdir.c_str(),horn.c_str(),geometry.c_str(),neutrino.c_str(),run) );
     TTree * gtree = (TTree*) tf->Get( "gtree" );
 
     pot += gtree->GetWeight();
