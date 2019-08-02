@@ -71,15 +71,19 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict):
 
         # cone-filter the neutron candidates
         gas_candidates = Cone_Reject(GasEvent.candidates, vtx)
-        continue
+        print "cone-rejected from %d to %d" % (len(GasEvent.candidates),len(gas_candidates))
 
         # pick a time from a flat distribution from 0, 10 microseconds
         t0 = random.uniform(0.,10000.) # ns
-        for cand in GasEvent.candidates:
+        reco_t0 = random.normalvariate(t0, dt)
+        for cand in gas_candidates:
             cand.nPosT += t0
             cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
 
-        reco_t0 = random.normalvariate(t0, dt)
+            np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
+            reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
+            if reco_KE is not None: # physical neutron
+                print "Gas neutron of %1.1f MeV" % reco_KE
 
         # simulate background events from the start of the spill to 200 ns after the signal
         # de-excitations can produce n-like signals microseconds after the interaction, but we don't 
@@ -91,9 +95,11 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict):
         while irock < n_rock:
             RockEvent = Event(RTree, irock)
 
+            rock_candidates = Cone_Reject(RockEvent.candidates, vtx)
+
             # pick a time
             trock = random.uniform(0.,bkg_end) # ns
-            for cand in RockEvent.candidates:
+            for cand in rock_candidates:
                 cand.nPosT += trock
                 cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
 
@@ -113,11 +119,18 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict):
         while ihall < n_hall:
             HallEvent = Event(GTree, ihall)
 
+            hall_candidates = Cone_Reject(HallEvent.candidates, vtx)
+
             # pick a time
             thall = random.uniform(0.,bkg_end) # ns
-            for cand in HallEvent.candidates:
+            for cand in hall_candidates:
                 cand.nPosT += thall
                 cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
+
+                np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
+                reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
+                if reco_KE is not None: # physical neutron
+                    print "Hall background neutron of %1.1f MeV" % reco_KE
 
 
             ihall += 1
