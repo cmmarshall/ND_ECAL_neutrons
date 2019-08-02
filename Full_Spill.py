@@ -12,45 +12,10 @@ from math import acos
 from math import pi
 import subprocess
 import random
-
-
-class NeutronCandidate:
-    def __init__(self, entry, index, source):
-        self.pos = ROOT.TVector3(entry.nPosX[index], entry.nPosY[index], entry.nPosZ[index])
-        self.time = entry.nPosT[index]
-        self.E = entry.nE[index]
-        self.Emax = entry.nEmax[index]
-        self.PDG = entry.nTruePDG[index]
-        self.isPrimary = entry.isPrimary[index]
-        self.TrueKE = entry.nTrueKE[index]
-        self.index = index
-        self.source = source
-    def getPos(self):
-        return self.pos
-    def getTime(self):
-        return self.time
-    def getE(self):
-        return self.E
-    def getEmax(self):
-        return self.Emax
-    def getPDG(self):
-        return self.PDG
-    def getisPrimary(self):
-        return self.isPrimary
-    def getTrueKE(self):
-        return self.TrueKE
-    def getIndex(self):
-        return self.index
-    def getSource(self):
-        return self.source
+from NTuple import *
 
 def dist(TVec1, TVec2):
-    diff = TVec1 - TVec2
-    return sqrt(diff.Dot(diff))
-
-
-
-
+    return (TVec1-TVec2).Mag()
 
 def Cone_Reject(Candidates, vtx): #Cand
     Candidates = sorted(Candidates, key = lambda cluster: dist(vtx, cluster.getPos()))
@@ -68,116 +33,135 @@ def Cone_Reject(Candidates, vtx): #Cand
 
 
 def GetRecoE(Candidate,vtx):
-    c = 1 #Figure out what the speed of light is...
-    mn = 939.565
+    c = 29.9792 # cm/ns
+    mn = 939.565 # MeV/c2
     beta = dist(Candidate.getPos(), vtx)/(c*Candidate.getTime())
     gamma = 1/sqrt(1 - beta**2);
     return mn*(gamma - 1)
 
+def Initialize_Plot_Dict(h_dict):
+    h_dict['Reco'] = ROOT.TH1D('Reco', 'Reconstructed Neutron Energy Distribution; Reconstructed Neutron Energy (MeV);', 70, 0., 700.)
+    h_dict['FReco'] = ROOT.TH1D('Fractional_Reco', 'Fractional Reconstructed Energy Residual; Fractional Residual;', 100, -1., 1.)
+    h_dict['Eff'] =  ROOT.TH1D('Efficiency', 'Reconstruction Efficiency; Efficiency;', 70, 0., 700.)
 
-def GetRockEvts(t0):
-    rando = ROOT.TRandom3(random.randint(0,int(1E5)))
-    NoRockin10mus = 1
-    Mean_Rock_Evts = ((t0 + 100)/1000)*NoRockin10mus
-    Poisson_Rock = rando.Poisson(Mean_Rock_Evts)
-    return Poisson_Rock
+def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict):
 
-def GetHallEvts(t0):
-    rando = ROOT.TRandom3(random.randint(0,int(1E5)))
-    NoHallin10mus = 1
-    Mean_Hall_Evts = ((t0 + 100)/1000)*NoHallin10mus
-    Poisson_Hall = rando.Poisson(Mean_Hall_Evts)
-    return Poisson_Hall
+    rando = ROOT.TRandom3(12345)
 
+    # save indices for rock, hall
+    irock = 0
+    ihall = 0
 
-def Initialize_Plot_Dict():
-    h_dict = {}
-    h_dict['Reco'] = ROOT.TH1D('Reco', 'Reconstructed Neutron Energy Distribution; Reconstructed Neutron Energy (MeV);', 5000,0, 700)
-    h_dict['FReco'] = ROOT.TH1D('Fractional_Reco', 'Fractional Reconstructed Energy Residual; Fractional Residual;', 500, 0, 5)
-    hEffic['Eff'] =  ROOT.TH1D('Efficiency', 'Reconstruction Efficiency; Efficiency;', 100, 0, 1)
+    # Loop over GAr interactions
+    Ngas = GTree.GetEntries()
+    Nrock = RTree.GetEntries()
+    Nhall = HTree.GetEntries()
+    for igas in range(Ngas):
+        GasEvent = Event(GTree, igas)
 
+        vtx = ROOT.TVector3(GasEvent.vtxX, GasEvent.vtxY, GasEvent.vtxZ)
+        # impose a fiducial volume cut; for simplicity
+        R = sqrt((vtx.y()+217.)**2 + (vtx.z()-585.)**2) # YZ circle centered at (-217, 585)
+        if R > 200. or abs(vtx.x()) > 200.: continue # x is centered -250, 250
 
-def loop(GTree, RTree, HTree, Emin, dt, Plot_dict):
-    for entry in GTree: #Each Entry corresponds to a Neutrino
-        vtx = ROOT.TVector3(entry.vtxX, entry.vtxY, entry.vtxZ)
-        vtxA = entry.vtxA
-        #pick a time from a flat distribution from 0, 10 microseconds
-        t0 = random.uniform(0,1000)
-        GCandidates = [NeutronCandidate(entry, index) for index in range(entry.nCandidates)]
-        for cand in GCandidates:
-            cand.time+=t0
-            cand.time = random.normalvariate(cand.time, dt)
+        # pick a time from a flat distribution from 0, 10 microseconds
+        t0 = random.uniform(0.,10000.) # ns
+        for cand in GasEvent.candidates:
+            cand.nPosT += t0
+            cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
 
-        Candidates = GCandidates; NoMax = GetRockEvts(t0)
-        for No, Rentry in enumerate(RTree):
-            if No >= NoMax:
-                break;
-            RCandidates = [NeutronCandidate(Rentry, index) for index in range(Rentry.nCandidates)]
-            t1 = random.uniform(0,t0+100)
-            for cand in RCandidates:
-                cand.time+=t1
-                cand.time = random.normalvariate(cand.time, dt)
-            Candidates += RCandidates
+        reco_t0 = random.normalvariate(t0, dt)
 
-        NoMax = GetHallEvts(t0)
-        for No, Hentry in enumerate(HTree):
-            if No >= NoMax:
-                break;
-            HCandidates = [NeutronCandidate(Hentry, index) for index in range(Hentry.nCandidates)]]
-            t1 = random.uniform(0,t0+100)
-            for cand in HCandidates:
-                cand.time+=t1
-                cand.time = random.normalvariate(cand.time, dt)
-            Candidates += HCandidates
+        # simulate background events from the start of the spill to 200 ns after the signal
+        # de-excitations can produce n-like signals microseconds after the interaction, but we don't 
+        # care about stuff that happens long after the search window
+        bkg_end = t0 + 200.
 
-        Candidates = sorted(Cone_Reject(Candidates, vtx), key = lambda cluster: random.normalvariate(cluster.getTime(), dt))
-        RecoE = GetRecoE(Candidates[0], vtx)
+        # add rock background
+        n_rock = irock + rando.Poisson(muRock*bkg_end/10000.)
+        while irock < n_rock:
+            RockEvent = Event(RTree, irock)
 
+            # pick a time
+            trock = random.uniform(0.,bkg_end) # ns
+            for cand in RockEvent.candidates:
+                cand.nPosT += trock
+                cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
 
+            irock += 1
+            if irock == Nrock: # we've run out of rock events; loop again
+                print "We've run out of rock events; resetting"
+                n_rock -= Nrock
+                irock = 0
 
+        # add hall background
+        n_hall = ihall + rando.Poisson(muHall*bkg_end/10000.)
+        while ihall < n_hall:
+            HallEvent = Event(GTree, ihall)
 
-
+            # pick a time
+            thall = random.uniform(0.,bkg_end) # ns
+            for cand in HallEvent.candidates:
+                cand.nPosT += thall
+                cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
 
 
-
-
+            ihall += 1
+            if ihall == Nhall: # we've run out of hall events; loop again
+                print "We've run out of hall events; resetting"
+                n_hall -= Nhall
+                ihall = 0
 
 
 if __name__ == "__main__":
 
-    #Edit Defaults
     parser = OptionParser()
     parser.add_option('--outfile', help='Output File Name', default='FSout.root')
 
-    parser.add_option('--topdir', help='Directory containing Input', default='/pnfs/dune/persistent/users/rsahay/neutronCandidates')
-    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='GArOut.root')
-    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='WorldOut.root')
-    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='DetOut.root')
-    parser.add_option('--Emin', help='Energy Threshhold for Neutron Candidates', default= 5)
-    parser.add_option('--dt', help='Time Resolution of our Detector', default=0.1)
+    parser.add_option('--topdir', help='Directory containing Input', default='/dune/app/users/marshalc/ND_neutron/ND_ECAL_neutrons')
+    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='outgas.root')
+    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='outrock.root')
+    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='outenc.root')
+    parser.add_option('--Emin', type=float, help='Energy Threshhold for Neutron Candidates', default= 5)
+    parser.add_option('--dt', type=float, help='Time Resolution of our Detector', default=0.7)
+    parser.add_option('--spill_pot', type=float, help='POT per spill', default=7.5E13)
 
     (args, dummy) = parser.parse_args()
-    Gfile_str = args.Gfile_str;
-    Rfile_str = args.Rfile_str;
-    Hfile_str = args.Hfile_str;
-    thresh = args.Emin; dt = args.dt
+    topdir = args.topdir
+    Gfile_str = args.Gfile_str
+    Rfile_str = args.Rfile_str
+    Hfile_str = args.Hfile_str
+    thresh = float(args.Emin )
+    dt = float(args.dt)
+    spill_pot = float(args.spill_pot)
 
-    GExists = path.exists('%s/%s'%(topdir, Gfile_str))
-    RExists = path.exists('%s/%s'%(topdir, Rfile_str))
-    HExists = path.exists('%s/%s'%(topdir, Hfile_str))
+    Gfile = ROOT.TFile('%s/%s' % (topdir, Gfile_str))
+    Rfile = ROOT.TFile('%s/%s' % (topdir, Rfile_str))
+    Hfile = ROOT.TFile('%s/%s' % (topdir, Hfile_str))
 
-    if GExists and RExists and HExists:
-        Gfile = ROOT.TFile('%s/%s'%(topdir, Gfile_str))
-        Rfile = ROOT.TFile('%s/%s'%(topdir, Rfile_str))
-        Hfile = ROOT.TFile('%s/%s'%(topdir, Hfile_str))
-    else:
-        print('Does GAr File Exist:%r'%(GExists))
-        print('Does Rock File Exist:%r'%(RExists))
-        print('Does Hall File Exist:%r'%(HExists))
-        sys.exit()
+    GTree =  Gfile.Get('tree')
+    RTree = Rfile.Get('tree')
+    HTree = Hfile.Get('tree')
 
-    GTree =  Gfile.Get('argon')
-    RTree = Rfile.Get('argon')
-    HTree = Hfile.Get('argon')
+    setBranches(GTree)
+    setBranches(RTree)
+    setBranches(HTree)
 
-    Plot_Dict = Initialize_Plot_Dict()
+    rock_meta = Rfile.Get('potTree')
+    rock_pot = 0.
+    for entry in rock_meta: rock_pot = entry.pot # only one entry
+    muRock = RTree.GetEntries() * spill_pot / rock_pot
+
+    enc_meta = Hfile.Get('potTree')
+    enc_pot = 0.
+    for entry in enc_meta: enc_pot = entry.pot # only one entry
+    muHall = HTree.GetEntries() * spill_pot / enc_pot
+
+    plots = {}
+    Initialize_Plot_Dict(plots)
+
+    print "mean events rock %1.1f hall %1.1f" % (muRock, muHall)
+
+    loop( GTree, RTree, HTree, thresh, dt, muRock, muHall, plots )
+
+
