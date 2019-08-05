@@ -37,6 +37,12 @@ t_pParticles = array( 'i', [0] )
 t_pTID = array( 'i', MAXNEUTRONS*[0] )
 t_pPDG = array( 'i', MAXNEUTRONS*[0] )
 t_pKE = array( 'd', MAXNEUTRONS*[0.] )
+t_pExitX = array( 'd', MAXNEUTRONS*[0.] )
+t_pExitY = array( 'd', MAXNEUTRONS*[0.] )
+t_pExitZ = array( 'd', MAXNEUTRONS*[0.] )
+t_pExitdX = array( 'd', MAXNEUTRONS*[0.] )
+t_pExitdY = array( 'd', MAXNEUTRONS*[0.] )
+t_pExitdZ = array( 'd', MAXNEUTRONS*[0.] )
 
 def setToBogus():
     t_run[0] = 0
@@ -48,6 +54,11 @@ def setToBogus():
     t_ECAL_visE[0] = 0.
     t_nCandidates[0] = 0
     t_pParticles[0] = 0
+
+def isCharged(pdg):
+    if abs(pdg) in [11, 13, 211, 321, 2212]:
+        return True
+    return False
 
 def primaryParent( event, tid ):
     otid = tid
@@ -106,12 +117,12 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         vm = info.fMemVirtual
         rm = info.fMemResident
 
-        if ient % 1 == 0:
+        if ient % 100 == 0:
             print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
 
         t_event[0] = ient
         clusters = []
-        tid_pdg_ke = {}
+        tid_idx = {}
 
         setToBogus()
 
@@ -129,12 +140,39 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 mom = particle.Momentum
                 pdg = particle.PDGCode
                 tid = particle.TrackId
-                tid_pdg_ke[tid] = (pdg, mom.E()-mom.M())
                 t_pTID[t_pParticles[0]] = tid
                 t_pPDG[t_pParticles[0]] = pdg
                 t_pKE[t_pParticles[0]] = mom.E() - mom.M()
+                t_pExitX[t_pParticles[0]] = -9999.9
+                t_pExitY[t_pParticles[0]] = -9999.9
+                t_pExitZ[t_pParticles[0]] = -9999.9
+                t_pExitdX[t_pParticles[0]] = -9999.9
+                t_pExitdY[t_pParticles[0]] = -9999.9
+                t_pExitdZ[t_pParticles[0]] = -9999.9
+
+                if isCharged(pdg): tid_idx[tid] = t_pParticles[0]
+
                 t_pParticles[0] += 1
 
+            for tid in tid_idx:
+                pts = event.Trajectories[tid].Points
+                lastPt = None
+                for pt in pts:
+                    node = tgeo.FindNode( pt.Position.X(), pt.Position.Y(), pt.Position.Z() )
+                    volName = node.GetName()
+                    if "TPC" in volName: # still in Gas TPC
+                        lastPt = pt.Position.Vect()
+                    else: # we just poked out of the Gas TPC
+                        if lastPt is None: # vertex isn't in the gas TPC, this variable is irrelevant for hall/rock background
+                            break
+                        idx = tid_idx[tid]
+                        thisPt = pt.Position.Vect()
+                        t_pExitX[idx] = lastPt.x()
+                        t_pExitY[idx] = lastPt.y()
+                        t_pExitZ[idx] = lastPt.z()
+                        t_pExitdX[idx] = (thisPt-lastPt).Unit().x()
+                        t_pExitdY[idx] = (thisPt-lastPt).Unit().y()
+                        t_pExitdZ[idx] = (thisPt-lastPt).Unit().z()
 
             ecal_hits = []
             for det in event.SegmentDetectors:
@@ -257,7 +295,7 @@ if __name__ == "__main__":
     parser.add_option('--last_run', type=int, help='Last run number', default=1001)
     parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
     parser.add_option('--geom',help='top volume of interactions', default="GArTPC")
-    parser.add_option('--cgap',help='Set Cluster Gap', default=10.)
+    parser.add_option('--cgap',help='Set Cluster Gap', default=5.)
     parser.add_option('--grid',action='store_true', help='Grid mode')
     # python analyze --topdir /pnfs/dune/persistent/users/marshalc/neutronSim/EDep --first_run 0 --last_run 0 --geom DetEnclosure --outfile out.root
 
@@ -296,6 +334,12 @@ if __name__ == "__main__":
     tree.Branch( "pTID", t_pTID, "pTID[pParticles]/I")
     tree.Branch( "pPDG", t_pPDG, "pPDG[pParticles]/I")
     tree.Branch( "pKE", t_pKE, "pKE[pParticles]/D")
+    tree.Branch( "pExitX", t_pExitX, "pExitX[nParticles]/D")
+    tree.Branch( "pExitY", t_pExitY, "pExitY[nParticles]/D")
+    tree.Branch( "pExitZ", t_pExitZ, "pExitZ[nParticles]/D")
+    tree.Branch( "pExitdX", t_pExitdX, "pExitdX[nParticles]/D")
+    tree.Branch( "pExitdY", t_pExitdY, "pExitdY[nParticles]/D")
+    tree.Branch( "pExitdZ", t_pExitdZ, "pExitdZ[nParticles]/D")
 
     meta = ROOT.TTree( "potTree", "potTree" )
     t_pot = array( 'd', [0.] )
