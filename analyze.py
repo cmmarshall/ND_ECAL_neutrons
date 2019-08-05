@@ -32,8 +32,10 @@ t_nMaxCell = array( 'd', MAXCANDIDATES*[0.] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
 t_nParTID = array('i', MAXCANDIDATES*[0])
-t_pNeutrons = array( 'i', [0] )
+t_nPrimTID = array('i', MAXCANDIDATES*[0])
+t_pParticles = array( 'i', [0] )
 t_pTID = array( 'i', MAXNEUTRONS*[0] )
+t_pPDG = array( 'i', MAXNEUTRONS*[0] )
 t_pKE = array( 'd', MAXNEUTRONS*[0.] )
 
 def setToBogus():
@@ -45,7 +47,15 @@ def setToBogus():
     t_vtxA[0] = 0
     t_ECAL_visE[0] = 0.
     t_nCandidates[0] = 0
-    t_pNeutrons[0] = 0
+    t_pParticles[0] = 0
+
+def primaryParent( event, tid ):
+    otid = tid
+    parentid = event.Trajectories[otid].ParentId
+    while parentid != -1: # primaries have parent ID -1
+        otid = parentid
+        parentid = event.Trajectories[parentid].ParentId
+    return otid
 
 # return track ID of most immediate neutron parent, if there is one (otherwise return 0)
 def neutronParent( event, tid ):
@@ -96,15 +106,16 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         vm = info.fMemVirtual
         rm = info.fMemResident
 
-        if ient % 10 == 0:
+        if ient % 1 == 0:
             print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
 
         t_event[0] = ient
+        clusters = []
+        tid_pdg_ke = {}
+
+        setToBogus()
 
         for ivtx,vertex in enumerate(event.Primaries):
-            clusters = []
-
-            setToBogus()
 
             reaction = vertex.Reaction #vertex.GetReaction()
             t_vtxX[0] = vertex.Position.X()/10. #vertex.GetPosition().X()/10. # cm
@@ -118,10 +129,11 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 mom = particle.Momentum
                 pdg = particle.PDGCode
                 tid = particle.TrackId
-                if pdg == 2112:
-                    t_pTID[t_pNeutrons[0]] = tid
-                    t_pKE[t_pNeutrons[0]] = mom.E() - mom.M()
-                    t_pNeutrons[0] += 1
+                tid_pdg_ke[tid] = (pdg, mom.E()-mom.M())
+                t_pTID[t_pParticles[0]] = tid
+                t_pPDG[t_pParticles[0]] = pdg
+                t_pKE[t_pParticles[0]] = mom.E() - mom.M()
+                t_pParticles[0] += 1
 
 
             ecal_hits = []
@@ -141,6 +153,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
 
                 #--------------DETERMINE PARENT PARTICLE--------------------#
                 neutral_tid = -1
+                primary_tid = -1
                 edep_tid = 0
                 for ii in range(len(edep.Contrib)):
                     tid = edep.Contrib[ii]
@@ -149,9 +162,11 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                     if neutron_tid > 0:
                         neutral_tid = neutron_tid
                         edep_tid = tid
+                        primary_tid = primaryParent(event, tid)
                     elif neutral_tid <= 0:
                         neutral_tid = photon_tid
                         edep_tid = tid
+                        primary_tid = primaryParent(event, tid)
 
                 #----------------------------------------------------------#
                 #-------------------\\\\\Clustering\\\\\-------------------#
@@ -159,7 +174,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 if neutral_tid > 0: # ensure neutral parent
 
                     node = tgeo.FindNode( edep.Start.X(), edep.Start.Y(), edep.Start.Z())
-                    this_hit = Hit(hStart, node.GetName(), edep.EnergyDeposit, edep.Start.T(), event.Trajectories[edep_tid].PDGCode, neutral_tid)
+                    this_hit = Hit(hStart, node.GetName(), edep.EnergyDeposit, edep.Start.T(), event.Trajectories[edep_tid].PDGCode, neutral_tid, primary_tid)
 
                     # Should this hit be added to any existing clusters?
                     # It is possible that this hit can be in multiple clusters, in which case they should be merged
@@ -184,7 +199,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                         # make a new cluster with this hit
                         this_cluster = Cluster(cluster_gap)
                         this_cluster.addHit(this_hit)
-                        clusters.append(this_cluster)                                
+                        clusters.append(this_cluster)
 
         # Fill the output ntuple
         t_nCandidates[0] = 0
@@ -199,10 +214,26 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
             t_nE[t_nCandidates[0]] = cluster.getEnergy()
             t_nTruePDG[t_nCandidates[0]] = cluster.getTruePDG()
             t_nParTID[t_nCandidates[0]] = cluster.getTrueParent()
+            t_nPrimTID[t_nCandidates[0]] = cluster.getPrimary()
             t_nMaxCell[t_nCandidates[0]] = cluster.getMaxCell()
             t_nNcell[t_nCandidates[0]] = cluster.getNcell(0.5)
             parent = event.Trajectories[cluster.getTrueParent()]
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
+
+            #vtx = ROOT.TVector3( t_vtxX[0], t_vtxY[0], t_vtxZ[0] )
+            #dt = cluster.getTime()
+            #dx = (cluster.getCentroid() - vtx).Mag()
+            #beta = dx/(29.9792*dt)
+            #recoe = -1.
+            #if beta > 0. and beta < 1.:
+            #    recoe = 939.565*( 1./sqrt(1.-beta**2) - 1. )
+
+            #print "Neutron cluster due to %d, dt %1.1f dx %1.1f, reco E %1.1f, primary %d of %1.1f MeV" % (cluster.getTruePDG(), 
+            #                                                                                               dt, 
+            #                                                                                               dx, 
+            #                                                                                               recoe, 
+            #                                                                                               tid_pdg_ke[cluster.getPrimary()][0],
+            #                                                                                               tid_pdg_ke[cluster.getPrimary()][1])
 
             t_nCandidates[0] += 1
 
@@ -260,9 +291,11 @@ if __name__ == "__main__":
     tree.Branch( "nTruePDG", t_nTruePDG, "nTruePDG[nCandidates]/I" )
     tree.Branch( "nTrueKE", t_nTrueKE, "nTrueKE[nCandidates]/D" )
     tree.Branch( "nParTID", t_nParTID, "nParTID[nCandidates]/I")
-    tree.Branch( "pNeutrons", t_pNeutrons, "pNeutrons/I" )
-    tree.Branch( "pTID", t_pTID, "pTID[pNeutrons]/I")
-    tree.Branch( "pKE", t_pKE, "pKE[pNeutrons]/D")
+    tree.Branch( "nPrimTID", t_nPrimTID, "nPrimTID[nCandidates]/I")
+    tree.Branch( "pParticles", t_pParticles, "pParticles/I" )
+    tree.Branch( "pTID", t_pTID, "pTID[pParticles]/I")
+    tree.Branch( "pPDG", t_pPDG, "pPDG[pParticles]/I")
+    tree.Branch( "pKE", t_pKE, "pKE[pParticles]/D")
 
     meta = ROOT.TTree( "potTree", "potTree" )
     t_pot = array( 'd', [0.] )

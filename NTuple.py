@@ -23,8 +23,10 @@ t_nMaxCell = array( 'd', MAXCANDIDATES*[0.] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
 t_nParTID = array('i', MAXCANDIDATES*[0])
-t_pNeutrons = array( 'i', [0] )
+t_nPrimTID = array('i', MAXCANDIDATES*[0])
+t_pParticles = array( 'i', [0] )
 t_pTID = array( 'i', MAXNEUTRONS*[0] )
+t_pPDG = array( 'i', MAXNEUTRONS*[0] )
 t_pKE = array( 'd', MAXNEUTRONS*[0.] )
 
 def setBranches( tree ):
@@ -46,8 +48,10 @@ def setBranches( tree ):
     tree.SetBranchAddress( "nTruePDG", t_nTruePDG )
     tree.SetBranchAddress( "nTrueKE", t_nTrueKE )
     tree.SetBranchAddress( "nParTID", t_nParTID )
-    tree.SetBranchAddress( "pNeutrons", t_pNeutrons )
+    tree.SetBranchAddress( "nPrimTID", t_nPrimTID )
+    tree.SetBranchAddress( "pParticles", t_pParticles )
     tree.SetBranchAddress( "pTID", t_pTID )
+    tree.SetBranchAddress( "pPDG", t_pPDG )
     tree.SetBranchAddress( "pKE", t_pKE )
 
 class Candidate:
@@ -62,14 +66,16 @@ class Candidate:
         self.nTruePDG = t_nTruePDG[idx]
         self.nTrueKE = t_nTrueKE[idx]
         self.nParTID = t_nParTID[idx]
+        self.nPrimTID = t_nPrimTID[idx]
 
     def getPos(self):
         pos = TVector3( self.nPosX, self.nPosY, self.nPosZ )
         return pos
 
-class PrimaryNeutron:
+class PrimaryParticle:
     def __init__(self, idx):
         self.pTID = t_pTID[idx]
+        self.pPDG = t_pPDG[idx]
         self.pKE = t_pKE[idx]
 
 class Event:
@@ -85,6 +91,6 @@ class Event:
         self.ECAL_visE = t_ECAL_visE[0]
         self.nCandidates = t_nCandidates[0]
         self.candidates = [Candidate(i) for i in range(self.nCandidates)]
-        self.pNeutrons = t_pNeutrons[0]
-        self.primaries = [PrimaryNeutron(i) for i in range(self.pNeutrons)]
+        self.pParticles = t_pParticles[0]
+        self.primaries = [PrimaryParticle(i) for i in range(self.pParticles)]
 

@@ -5,13 +5,14 @@ from math import sqrt
 
 class Hit:
 
-    def __init__(self, pos, volName, energy, time, pdg, neutral_tid):
+    def __init__(self, pos, volName, energy, time, pdg, neutral_tid, primary_tid):
         self.pos = pos
         self.volName = volName
         self.energy = energy
         self.time = time
         self.pdg = pdg
         self.neutral_tid = neutral_tid # TID of parent photon/neutron
+        self.primary_tid = primary_tid # TID of primary parent
 
     def getPos(self):
         return self.pos
@@ -25,6 +26,8 @@ class Hit:
         return self.pdg
     def getParentTID(self):
         return self.neutral_tid
+    def getPrimaryTID(self):
+        return self.primary_tid
 
 class Cluster:
 
@@ -41,6 +44,7 @@ class Cluster:
         self.centroid = None
         self.true_pdg = None
         self.parent_tid = None
+        self.primary_tid = None
 
     def addHit(self, hit):
         # if htis are added, cluster-level variables will be wrong
@@ -73,6 +77,7 @@ class Cluster:
         self.centroid = None
         self.true_pdg = None
         self.parent_tid = None
+        self.primary_tid = None
 
     # Calculate stuff about this cluster
     # This is intended to be called before filling ntuple, and isn't fast
@@ -84,6 +89,7 @@ class Cluster:
 
         pdg_energy = {} # map from PDG making energy deposits (i.e. electron, proton) --> energy
         par_energy = {} # map of neutral parent TID (i.e. neutron, photon) --> energy
+        prim_energy = {} # map of primary parent TID --> energy
 
         for hit in self.hits:
             self.centroid += (hit.getEnergy() * hit.getPos()) # scale position 3-vector by energy
@@ -94,6 +100,7 @@ class Cluster:
 
             pdg = abs(hit.getPDG()) # don't distinguish between electrons and positrons; there aren't antiphotons or antiprotons
             par = hit.getParentTID()
+            prim = hit.getPrimaryTID()
             if pdg in pdg_energy:
                 pdg_energy[pdg] += hit.getEnergy()
             else:
@@ -103,6 +110,11 @@ class Cluster:
                 par_energy[par] += hit.getEnergy()
             else:
                 par_energy[par] = hit.getEnergy()
+
+            if prim in prim_energy:
+                prim_energy[prim] += hit.getEnergy()
+            else:
+                prim_energy[prim] = hit.getEnergy()                
 
             # see if this hit is in a cell already included in the cluster
             if hit.getVolName() not in self.cells:
@@ -114,6 +126,7 @@ class Cluster:
 
         max_pdg = 0.
         max_par = 0.
+        max_prim = 0.
         for pdg in pdg_energy:
             if pdg_energy[pdg] > max_pdg:
                 max_pdg = pdg_energy[pdg]
@@ -122,6 +135,10 @@ class Cluster:
             if par_energy[par] > max_par:
                 max_par = par_energy[par]
                 self.parent_tid = par
+        for prim in prim_energy:
+            if prim_energy[prim] > max_prim:
+                max_prim = prim_energy[prim]
+                self.primary_tid = prim
 
     # simple getters for the calculated things
     def getEnergy(self):
@@ -153,6 +170,11 @@ class Cluster:
         if self.parent_tid is None:
             CalcStuff()
         return self.parent_tid
+
+    def getPrimary(self):
+        if self.primary_tid is None:
+            CalcStuff()
+        return self.primary_tid
 
     def getNcell(self, cut):
         n = 0
