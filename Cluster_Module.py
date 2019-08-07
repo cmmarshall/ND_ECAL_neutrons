@@ -45,6 +45,7 @@ class Cluster:
         self.true_pdg = None
         self.parent_tid = None
         self.primary_tid = None
+        self.sigmas = None
 
     def addHit(self, hit):
         # if htis are added, cluster-level variables will be wrong
@@ -78,6 +79,7 @@ class Cluster:
         self.true_pdg = None
         self.parent_tid = None
         self.primary_tid = None
+        self.sigmas = None
 
     # Calculate stuff about this cluster
     # This is intended to be called before filling ntuple, and isn't fast
@@ -123,6 +125,14 @@ class Cluster:
                 self.cells[hit.getVolName()] += hit.getEnergy()
 
         self.centroid *= (1. / self.energy) # scale to make meaningful energy-weighted position
+
+        # sigmas from the centroid in each dimension
+        self.sigmas = [ 0., 0., 0. ]
+        for hit in self.hits:
+            self.sigmas[0] += (hit.getPos().x() - self.centroid.x())**2 * hit.getEnergy()
+            self.sigmas[1] += (hit.getPos().y() - self.centroid.y())**2 * hit.getEnergy()
+            self.sigmas[2] += (hit.getPos().z() - self.centroid.z())**2 * hit.getEnergy()
+        for i in range(3): self.sigmas[i] = sqrt(self.sigmas[i] / self.energy)
 
         max_pdg = 0.
         max_par = 0.
@@ -189,6 +199,11 @@ class Cluster:
             if self.cells[cell] > m:
                 m = self.cells[cell]
         return m
+
+    def getSigmas(self):
+        if self.sigmas is None:
+            CalcStuff()
+        return self.sigmas
 
 
 

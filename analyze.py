@@ -8,6 +8,7 @@ from optparse import OptionParser
 from array import array
 from math import sqrt
 import subprocess
+import random
 from Cluster_Module import *
 
 MAXCANDIDATES = 1000
@@ -21,12 +22,20 @@ t_vtxY = array( 'd', [0.] )
 t_vtxZ = array( 'd', [0.] )
 t_vtxA = array( 'i', [0] )
 t_ECAL_visE = array( 'd', [0.] )
+t_ECAL_vetoT = array( 'd', [0.] )
+t_ECAL_vetoX = array( 'd', [0.] )
+t_ECAL_vetoY = array( 'd', [0.] )
+t_ECAL_vetoZ = array( 'd', [0.] )
 t_nCandidates = array( 'i', [0] )
 t_nPosX = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosY = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosT = array( 'd', MAXCANDIDATES*[0.] )
+t_nSigmaX = array( 'd', MAXCANDIDATES*[0.] )
+t_nSigmaY = array( 'd', MAXCANDIDATES*[0.] )
+t_nSigmaZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nE = array( 'd', MAXCANDIDATES*[0.] )
+t_nIso = array( 'd', MAXCANDIDATES*[0.] )
 t_nNcell = array( 'i', MAXCANDIDATES*[0] )
 t_nMaxCell = array( 'd', MAXCANDIDATES*[0.] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
@@ -52,6 +61,10 @@ def setToBogus():
     t_vtxZ[0] = 0.
     t_vtxA[0] = 0
     t_ECAL_visE[0] = 0.
+    t_ECAL_vetoT[0] = 0.
+    t_ECAL_vetoX[0] = 0.
+    t_ECAL_vetoY[0] = 0.
+    t_ECAL_vetoZ[0] = 0.
     t_nCandidates[0] = 0
     t_pParticles[0] = 0
 
@@ -180,14 +193,15 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                     ecal_hits += det.second
 
             t_ECAL_visE[0] = 0.
+            t_ECAL_vetoT[0] = 9999999.
+
+            charged_hits = []
 
             # Loop over edep-sim "hits", call it edep to avoid confusin with Hit class
             for kk, edep in enumerate(ecal_hits):
                 if edep.EnergyDeposit < 0.01: # skip tiny deposits, this cut needs to be tuned
                     continue
                 hStart = ROOT.TVector3( edep.Start.X()/10., edep.Start.Y()/10., edep.Start.Z()/10. )
-
-                t_ECAL_visE[0] += edep.EnergyDeposit
 
                 #--------------DETERMINE PARENT PARTICLE--------------------#
                 neutral_tid = -1
@@ -238,6 +252,15 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                         this_cluster = Cluster(cluster_gap)
                         this_cluster.addHit(this_hit)
                         clusters.append(this_cluster)
+                else: # charged parent
+                    t_ECAL_visE[0] += edep.EnergyDeposit
+                    charged_hits.append( ROOT.TVector3(edep.Start.X()/10., edep.Start.Y()/10., edep.Start.Z()/10.) )
+                    reco_t = random.normalvariate(edep.Start.T(), 0.7)
+                    if reco_t < t_ECAL_vetoT[0]:
+                        t_ECAL_vetoT[0] = reco_t
+                        t_ECAL_vetoX[0] = edep.Start.X()/10.
+                        t_ECAL_vetoY[0] = edep.Start.Y()/10.
+                        t_ECAL_vetoZ[0] = edep.Start.Z()/10.
 
         # Fill the output ntuple
         t_nCandidates[0] = 0
@@ -245,9 +268,18 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
 
             cluster.CalcStuff()
 
+            cpos = cluster.getCentroid()
+            t_nIso[t_nCandidates[0]] = 999999.9
+            for hit in charged_hits:
+                if (cpos-hit).Mag() < t_nIso[t_nCandidates[0]]:
+                    t_nIso[t_nCandidates[0]] = (cpos-hit).Mag()
+
             t_nPosX[t_nCandidates[0]] = cluster.getCentroid().x()
             t_nPosY[t_nCandidates[0]] = cluster.getCentroid().y()
             t_nPosZ[t_nCandidates[0]] = cluster.getCentroid().z()
+            t_nSigmaX[t_nCandidates[0]] = cluster.getSigmas()[0]
+            t_nSigmaY[t_nCandidates[0]] = cluster.getSigmas()[1]
+            t_nSigmaZ[t_nCandidates[0]] = cluster.getSigmas()[2]
             t_nPosT[t_nCandidates[0]] = cluster.getTime()
             t_nE[t_nCandidates[0]] = cluster.getEnergy()
             t_nTruePDG[t_nCandidates[0]] = cluster.getTruePDG()
@@ -318,12 +350,20 @@ if __name__ == "__main__":
     tree.Branch( "vtxZ", t_vtxZ, "vtxZ/D" )
     tree.Branch( "vtxA", t_vtxA, "vtxA/I" )
     tree.Branch( "ECAL_visE", t_ECAL_visE, "ECAL_visE/D" )
+    tree.Branch( "ECAL_vetoT", t_ECAL_vetoT, "ECAL_vetoT/D" )
+    tree.Branch( "ECAL_vetoX", t_ECAL_vetoX, "ECAL_vetoX/D" )
+    tree.Branch( "ECAL_vetoY", t_ECAL_vetoY, "ECAL_vetoY/D" )
+    tree.Branch( "ECAL_vetoZ", t_ECAL_vetoZ, "ECAL_vetoZ/D" )
     tree.Branch( "nCandidates", t_nCandidates, "nCandidates/I" )
     tree.Branch( "nPosX", t_nPosX, "nPosX[nCandidates]/D" )
     tree.Branch( "nPosY", t_nPosY, "nPosY[nCandidates]/D" )
     tree.Branch( "nPosZ", t_nPosZ, "nPosZ[nCandidates]/D" )
     tree.Branch( "nPosT", t_nPosT, "nPosT[nCandidates]/D" )
+    tree.Branch( "nSigmaX", t_nSigmaX, "nSigmaX[nCandidates]/D" )
+    tree.Branch( "nSigmaY", t_nSigmaY, "nSigmaY[nCandidates]/D" )
+    tree.Branch( "nSigmaZ", t_nSigmaZ, "nSigmaZ[nCandidates]/D" )
     tree.Branch( "nE", t_nE, "nE[nCandidates]/D" )
+    tree.Branch( "nIso", t_nIso, "nIso[nCandidates]/D" )
     tree.Branch( "nNcell", t_nNcell, "nNcell[nCandidates]/I" )
     tree.Branch( "nMaxCell", t_nMaxCell, "nMaxCell[nCandidates]/D" )
     tree.Branch( "nTruePDG", t_nTruePDG, "nTruePDG[nCandidates]/I" )
@@ -334,12 +374,12 @@ if __name__ == "__main__":
     tree.Branch( "pTID", t_pTID, "pTID[pParticles]/I")
     tree.Branch( "pPDG", t_pPDG, "pPDG[pParticles]/I")
     tree.Branch( "pKE", t_pKE, "pKE[pParticles]/D")
-    tree.Branch( "pExitX", t_pExitX, "pExitX[nParticles]/D")
-    tree.Branch( "pExitY", t_pExitY, "pExitY[nParticles]/D")
-    tree.Branch( "pExitZ", t_pExitZ, "pExitZ[nParticles]/D")
-    tree.Branch( "pExitdX", t_pExitdX, "pExitdX[nParticles]/D")
-    tree.Branch( "pExitdY", t_pExitdY, "pExitdY[nParticles]/D")
-    tree.Branch( "pExitdZ", t_pExitdZ, "pExitdZ[nParticles]/D")
+    tree.Branch( "pExitX", t_pExitX, "pExitX[pParticles]/D")
+    tree.Branch( "pExitY", t_pExitY, "pExitY[pParticles]/D")
+    tree.Branch( "pExitZ", t_pExitZ, "pExitZ[pParticles]/D")
+    tree.Branch( "pExitdX", t_pExitdX, "pExitdX[pParticles]/D")
+    tree.Branch( "pExitdY", t_pExitdY, "pExitdY[pParticles]/D")
+    tree.Branch( "pExitdZ", t_pExitdZ, "pExitdZ[pParticles]/D")
 
     meta = ROOT.TTree( "potTree", "potTree" )
     t_pot = array( 'd', [0.] )
