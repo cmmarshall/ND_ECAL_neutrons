@@ -46,6 +46,8 @@ class Cluster:
         self.parent_tid = None
         self.primary_tid = None
         self.sigmas = None
+        self.energyFracPar = None
+        self.energyFracPrim = None
 
     def addHit(self, hit):
         # if htis are added, cluster-level variables will be wrong
@@ -145,10 +147,12 @@ class Cluster:
             if par_energy[par] > max_par:
                 max_par = par_energy[par]
                 self.parent_tid = par
+                self.energyFracPar = max_par / self.energy
         for prim in prim_energy:
             if prim_energy[prim] > max_prim:
                 max_prim = prim_energy[prim]
                 self.primary_tid = prim
+                self.energyFracPrim = max_prim / self.energy
 
     # simple getters for the calculated things
     def getEnergy(self):
@@ -204,6 +208,12 @@ class Cluster:
         if self.sigmas is None:
             CalcStuff()
         return self.sigmas
+
+    def getFracMaxPar(self):
+        return self.energyFracPar
+
+    def getFracMaxPrim(self):
+        return self.energyFracPrim
 
 
 

@@ -88,6 +88,18 @@ def inChargedCylinder( cylinders, cand ):
             return True
     return False
 
+def mind( cylinders, cand ):
+    p = cand.getPos()
+    min_d = 99999999.9
+    for cylinder in cylinders:
+        a = cylinder[1]
+        n = cylinder[2].Unit()
+        d = distFromLine(a, n, p)
+
+        if d < min_d: # neutron candidate is in line with charged track from gas TPC
+            min_d = d
+    return min_d 
+
 def isVeto( veto_time_vtx, cand ):
     p = cand.getPos()
     nt = cand.nPosT
@@ -100,6 +112,9 @@ def isVeto( veto_time_vtx, cand ):
 
 def Initialize_Plot_Dict(h_dict):
     h_dict["reco"] = {}
+    h_dict["cyl_min"] = {}
+    h_dict["iso"] = {}
+    h_dict["iso_cyl"] = {}
     h_dict["eres"] = ROOT.TH2D( "eres", ";True neutron KE (MeV);Fractional energy resolution", 70, 0., 700., 100, -1., 1. )
     h_dict["eff"] = ROOT.TH1D( "eff", ";True neutron KE (MeV)", 70, 0., 700. )
     h_dict["denom"] = ROOT.TH1D( "denom", ";True neutron KE (MeV)", 70, 0., 700. )
@@ -110,6 +125,10 @@ def Initialize_Plot_Dict(h_dict):
         h_dict["reco"][cat] = {}
         for cut in cuts:
             h_dict["reco"][cat][cut] = ROOT.TH1D( "reco_%s_%s" % (cat,cut), ";Reco neutron KE (MeV)", 70, 0., 700. )
+
+        h_dict["cyl_min"][cat] = ROOT.TH1D( "cyl_min_%s" % cat, ";Min dist to charged traj (cm)", 100, 0., 500. )
+        h_dict["iso"][cat] = ROOT.TH1D( "iso_%s" % cat, ";Isolation (cm)", 100, 0., 500. )
+        h_dict["iso_cyl"][cat] = ROOT.TH2D( "isocyl_%s" % cat, ";Isolation (cm);Cylinder (cm)", 50, 0., 500., 50, 0., 500. )
 
 def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
 
@@ -125,7 +144,7 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
     Nrock = RTree.GetEntries()
     Nhall = HTree.GetEntries()
     for igas in range(Ngas):
-        if igas % 1 == 0:
+        if igas % 1000 == 0:
             print "Gas event %d of %d..." % (igas, Ngas)
         GasEvent = Event(GTree, igas)
 
@@ -153,7 +172,7 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
             if abs(t-t0) < 300.:
                 idx = i + irock
                 if idx > Nrock: idx -= Nrock # reset the rock counter
-                RockEvent = Event(Rtree, idx)
+                RockEvent = Event(RTree, idx)
                 if RockEvent.ECAL_visE > 10.:
                     veto_time_vtx.append( (RockEvent.ECAL_vetoT+t, RockEvent.ECAL_vetoP) )
 
@@ -162,7 +181,7 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
             if abs(t-t0) < 300.:
                 idx = i + irock
                 if idx > Nhall: idx -= Nhall # reset the hall counter
-                HallEvent = Event(Htree, idx)
+                HallEvent = Event(HTree, idx)
                 if HallEvent.ECAL_visE > 10.:
                     veto_time_vtx.append( (HallEvent.ECAL_vetoT+t, HallEvent.ECAL_vetoP) )
 
@@ -172,7 +191,9 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
         # Get true neutrons, and other primaries that might produce backgrounds
         tid_KE = {}
         cylinders = []
+        tid_pdg = {}
         for pn in GasEvent.primaries:
+            tid_pdg[pn.pTID] = pn.pPDG
             if pn.pPDG == 2112:
                 #print "True neutron KE %1.1f" % (pn.pKE)
                 tid_KE[pn.pTID] = pn.pKE
@@ -202,31 +223,31 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
             # Veto the event if it could have come from background
             passVeto = (not isVeto(veto_time_vtx, cand))
 
+            cat = None
+
             tid = cand.nPrimTID
             if tid in tid_KE: # signal neutron!!
                 trueKE = tid_KE[tid]
-                print "Signal neutron true %1.1f reco %1.1f" % (trueKE, reco_KE)
-                #if trueKE < 1.E-6: continue # is this possible? it shouldn't be
                 if tid in reco_tids: # duplicate neutron; count the second one as background
-                    #print "   Whoops! This neutron was already reconstructed"
-                    h_dict["reco"]["gasnbkg"].Fill( reco_KE )
-                    if passCyl: h_dict["reco"]["passgas"].Fill( reco_KE )
+                    cat = "gasn"
                 else: # Good signal neutron
-                    h_dict["reco"]["signal"].Fill( reco_KE )
-                    if passCyl:
-                        h_dict["reco"]["passsignal"].Fill( reco_KE )
+                    cat = "signal"
+                    if passCyl and passVeto: 
                         h_dict["eff"].Fill( trueKE ) # eff numerator fill with true KE
                         h_dict["eres"].Fill( trueKE, (reco_KE-trueKE)/trueKE )
-                    #else: print "   Whoops! rejected signal by cylinder cut"
                     reco_tids.append(tid)
             else: # not true primary neutron, i.e. gas background
-                if true_neutron: h_dict["reco"]["gasnbkg"].Fill( reco_KE )
-                else:            h_dict["reco"]["gasgbkg"].Fill( reco_KE )
-                if passCyl:
-                    h_dict["reco"]["passgas"].Fill( reco_KE )
-                else:
-                    print "    rejected by cylinder!"
+                cat = "gasn" if true_neutron else "gasg"
 
+            h_dict["cyl_min"][cat].Fill( mind(cylinders,cand) )
+            h_dict["iso"][cat].Fill( cand.nIso )
+            h_dict["iso_cyl"][cat].Fill( cand.nIso, mind(cylinders,cand) )
+
+            h_dict["reco"][cat]["gamma"].Fill( reco_KE )
+            if passCyl: h_dict["reco"][cat]["iso"].Fill( reco_KE )
+            if passCyl and passVeto: h_dict["reco"][cat]["veto"].Fill( reco_KE )
+
+        continue
 
         # add rock background
         for trock in rock_times:
@@ -241,9 +262,13 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
 
                 np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
                 reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
-                if reco_KE is not None: # physical neutron
-                    if true_neutron: h_dict["reco"]["rockn"].Fill( reco_KE )
-                    else:            h_dict["reco"]["rockg"].Fill( reco_KE )
+                if reco_KE is None or reco_KE < 5.: continue # unphysical neutron
+
+                cat = "rockn" if true_neutron else "rockg"
+
+                h_dict["reco"][cat]["gamma"].Fill( reco_KE )
+                if passCyl: h_dict["reco"][cat]["iso"].Fill( reco_KE )
+                if passCyl and passVeto: h_dict["reco"][cat]["veto"].Fill( reco_KE )
 
             irock += 1
             if irock == Nrock: # we've run out of rock events; loop again
@@ -252,18 +277,10 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
                 irock = 0
 
         # add hall background
-        while ihall < n_hall:
+        for thall in hall_times:
             HallEvent = Event(GTree, ihall)
 
             hall_candidates = neutron_cut(HallEvent.candidates, vtx)
-
-            # pick a time
-            thall = random.uniform(0.,bkg_end) # ns
-
-            # Veto around "connected" ECAL energy from charged ancestors
-            veto_vtx = None
-            if HallEvent.ECAL_visE > 10.:
-                veto_vtx = HallEvent.ECAL_centroid
 
             for cand in hall_candidates:
                 true_neutron = (cand.nTruePDG == 2212 or cand.nTruePDG == 2112)
@@ -272,10 +289,13 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
 
                 np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
                 reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
-                if reco_KE is not None: # physical neutron
-                    if true_neutron: h_dict["reco"]["halln"].Fill( reco_KE )
-                    else:            h_dict["reco"]["hallg"].Fill( reco_KE )
+                if reco_KE is None or reco_KE < 5.: continue # unphysical neutron
 
+                cat = "halln" if true_neutron else "hallg"
+
+                h_dict["reco"][cat]["gamma"].Fill( reco_KE )
+                if passCyl: h_dict["reco"][cat]["iso"].Fill( reco_KE )
+                if passCyl and passVeto: h_dict["reco"][cat]["veto"].Fill( reco_KE )
 
             ihall += 1
             if ihall == Nhall: # we've run out of hall events; loop again
@@ -306,7 +326,7 @@ if __name__ == "__main__":
     spill_pot = float(args.spill_pot)
 
     #Gfile = ROOT.TFile('%s/%s' % (topdir, Gfile_str))
-    Gfile = ROOT.TFile("out.root")
+    Gfile = ROOT.TFile("outgas.root")
     Rfile = ROOT.TFile('%s/%s' % (topdir, Rfile_str))
     Hfile = ROOT.TFile('%s/%s' % (topdir, Hfile_str))
 
@@ -338,10 +358,12 @@ if __name__ == "__main__":
 
     tfout = ROOT.TFile( args.outfile, "RECREATE" )
     for key in h_dict:
-        if key != "reco":
+        try: 
             h_dict[key].Write()
-        else:
+        except AttributeError:
             for key2 in h_dict[key]:
-                h_dict[key][key2].Write()
-
-
+                try:
+                    h_dict[key][key2].Write()
+                except AttributeError:
+                    for key3 in h_dict[key][key2]:
+                        h_dict[key][key2][key3].Write()
