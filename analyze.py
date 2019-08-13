@@ -385,6 +385,10 @@ if __name__ == "__main__":
     t_pot = array( 'd', [0.] )
     meta.Branch( "pot", t_pot, "pot/D" )
 
+    fout.cd()
+    t_pot[0] = the_POT
+    meta.Fill()
+
     tgeo = None
 
     neutrino = "neutrino" if not args.rhc else "antineutrino"
@@ -411,10 +415,6 @@ if __name__ == "__main__":
         fout.cd()
         loop( events, tgeo, tree, cluster_gap=float(args.cgap))
         tf.Close()
-
-    fout.cd()
-    t_pot[0] = the_POT
-    meta.Fill()
 
     tree.Write()
     meta.Write()
