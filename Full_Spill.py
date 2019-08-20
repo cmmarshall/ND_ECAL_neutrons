@@ -22,19 +22,25 @@ def dist(TVec1, TVec2):
 def distFromLine( a, n, p ):
     return ((a-p) - n*((a-p).Dot(n))).Mag()
 
-def neutron_cut(cans, vtx):
-
-    # Apply 2 cuts. 1) neutron recoil cut, 2) cone cut
-    candidates = sorted(cans, key = lambda cluster: dist(vtx, cluster.getPos()))
+def neutron_cut(candidates):
 
     i = 0
     while i < len(candidates):
         can = candidates[i]
         nCut = (can.nMaxCell > 10. or (can.nMaxCell>3. and can.nNcell <= 4))
         if not nCut:
+            can.SetRecoGamma()
             candidates.pop(i)
         else:
+            can.SetRecoNeutron()
             i += 1
+
+    return candidates
+
+def cylinder_cut(cans, vtx):
+
+    # Apply 2 cuts. 1) neutron recoil cut, 2) cone cut
+    candidates = sorted(cans, key = lambda cluster: dist(vtx, cluster.getPos()))
 
     # cylinder rejection, start with nearest candidate to vertex
     i = 0
@@ -42,29 +48,21 @@ def neutron_cut(cans, vtx):
         a = candidates[i].getPos()
         n = (vtx-a).Unit()
         j = i+1
+        nCut = (candidates[i].nMaxCell > 10. or (candidates[i].nMaxCell>3. and candidates[i].nNcell <= 4))
+        if not nCut:
+            candidates[i].SetRecoGamma()
+        else:
+            candidates[i].SetRecoNeutron()
+
         while j < len(candidates):
             distance = distFromLine( a, n, candidates[j].getPos() )
             if distance < 20.:
+                candidates[i].UpCylinder()
                 candidates.pop(j)
             else:
                 j += 1
         i += 1
     return candidates
-
-    # old cone
-    #i = 0
-    #while i < len(candidates):
-    #    vecti = candidates[i].getPos() - vtx
-    #    j = i+1
-    #    while j < len(candidates):
-    #        vectj = candidates[j].getPos() - vtx
-    #        angle = vecti.Angle(vectj)
-    #        if angle <= pi/6:
-    #            candidates.pop(j)
-    #        else:
-    #            j += 1
-    #    i += 1
-    #return candidates
 
 def GetRecoE(np,vtx,tof):
     c = 29.9792 # cm/ns
@@ -218,9 +216,6 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
                 if HallEvent.ECAL_visE > 10. and (HallEvent.ECAL_vetoT+t < reco_t0-5 or HallEvent.ECAL_vetoT+t > reco_t0 + 10):
                     veto_time_vtx.append( (idx, HallEvent.ECAL_vetoT+t, HallEvent.ECAL_vetoP) )
 
-        # cone-filter the signal neutron candidates
-        gas_candidates = neutron_cut(GasEvent.candidates, vtx)
-
         # Get true neutrons, and other primaries that might produce backgrounds
         tid_KE = {}
         cylinders = []
@@ -237,6 +232,9 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
 
         reco_tids = [] # save track IDs of reco neutrons to check for duplicates, i.e. 1 neutron --> 2 or more candidates
 
+        # cone-filter the signal neutron candidates
+        gas_candidates = cylinder_cut(GasEvent.candidates, vtx)
+
         for cand in gas_candidates:
             cand.nPosT += t0
             cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
@@ -249,6 +247,9 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
 
             # remove super-luminal neutrons, or neutrons so delayed w.r.t. neutrino that they have very low reco energy
             if reco_KE is None or reco_KE < 5.: continue
+
+            # gamma cut
+            passGamma = cand.RecoNeutron
 
             # check the ECAL cylinders of entering charged particles, which are likely due to those particles
             passCyl = (not inChargedCylinder(cylinders, cand))
@@ -265,60 +266,22 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
                     cat = "duplicate"
                 else: # Good signal neutron
                     cat = "signal"
-                    h_dict["eff"]["gamma"].Fill( trueKE )
-                    if passCyl: h_dict["eff"]["cyl"].Fill( trueKE )
-                    if passCyl and passVeto: 
-                        h_dict["eff"]["veto"].Fill( trueKE ) # eff numerator fill with true KE
-                        h_dict["eres"].Fill( trueKE, (reco_KE-trueKE)/trueKE )
-                    if passCyl and passVeto and cand.nIso>50.: h_dict["eff"]["iso"].Fill( trueKE )
+                    h_dict["eff"]["none"].Fill( trueKE )
+                    if passGamma: 
+                        h_dict["eff"]["gamma"].Fill( trueKE )
+                        if passCyl: 
+                            h_dict["eff"]["cyl"].Fill( trueKE )
+                            if passVeto: 
+                                h_dict["eff"]["veto"].Fill( trueKE ) # eff numerator fill with true KE
+                                h_dict["eres"].Fill( trueKE, (reco_KE-trueKE)/trueKE )
+                                if cand.nIso>50.: 
+                                    h_dict["eff"]["iso"].Fill( trueKE )
                     reco_tids.append(tid)
             else: # not true primary neutron, i.e. gas background
                 cat = "gasn" if true_neutron else "gasg"
 
-            h_dict["cyl_min"][cat].Fill( mind(cylinders,cand) )
-            h_dict["iso_cyl"][cat].Fill( cand.nIso, mind(cylinders,cand) )
-
-            h_dict["reco"][cat]["gamma"].Fill( reco_KE )
-            if passCyl: 
-                h_dict["reco"][cat]["cyl"].Fill( reco_KE )
-                dtd = vetoParams( veto_time_vtx, cand )
-                dt_min = 9999999999.9
-                d_min = None
-                for idx, deltat, d in dtd:
-                    h_dict["dt_d"][cat].Fill( deltat, d/100. )
-                    if deltat > -5 and deltat < dt_min:
-                        dt_min = deltat
-                        d_min = d/100.
-                if d_min is not None: h_dict["d_dt_min"][cat].Fill( d_min )
-                else: h_dict["d_dt_min"][cat].Fill( 9.99 )
-            if passCyl and passVeto: 
-                h_dict["reco"][cat]["veto"].Fill( reco_KE )
-                h_dict["iso"][cat].Fill( cand.nIso )
-            if passCyl and passVeto and cand.nIso > 50.:
-                h_dict["reco"][cat]["iso"].Fill( reco_KE )
-                
-        # add hall background
-        for thall in hall_times:
-            HallEvent = Event(HTree, ihall)
-
-            hall_candidates = neutron_cut(HallEvent.candidates, vtx)
-
-            for cand in hall_candidates:
-                true_neutron = (cand.nTruePDG == 2212 or cand.nTruePDG == 2112)
-                cand.nPosT += thall
-                cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
-
-                passCyl = (not inChargedCylinder(cylinders, cand))
-    
-                # Veto the event if it could have come from background
-                passVeto = (not isVeto(veto_time_vtx, cand))
-
-                np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
-                reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
-                if reco_KE is None or reco_KE < 5.: continue # unphysical neutron
-
-                cat = "halln" if true_neutron else "hallg"
-
+            h_dict["reco"][cat]["none"].Fill( reco_KE )
+            if passGamma:
                 h_dict["cyl_min"][cat].Fill( mind(cylinders,cand) )
                 h_dict["iso_cyl"][cat].Fill( cand.nIso, mind(cylinders,cand) )
 
@@ -335,12 +298,59 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
                             d_min = d/100.
                     if d_min is not None: h_dict["d_dt_min"][cat].Fill( d_min )
                     else: h_dict["d_dt_min"][cat].Fill( 9.99 )
-                if passCyl and passVeto: 
+                if passVeto: 
                     h_dict["reco"][cat]["veto"].Fill( reco_KE )
                     h_dict["iso"][cat].Fill( cand.nIso )
-                if passCyl and passVeto and cand.nIso > 50.:
-                    h_dict["reco"][cat]["iso"].Fill( reco_KE )
+                    if cand.nIso > 50.:
+                        h_dict["reco"][cat]["iso"].Fill( reco_KE )
+                
+        # add hall background
+        for thall in hall_times:
+            HallEvent = Event(HTree, ihall)
 
+            hall_candidates = cylinder_cut(HallEvent.candidates, vtx)
+
+            for cand in hall_candidates:
+                true_neutron = (cand.nTruePDG == 2212 or cand.nTruePDG == 2112)
+                cand.nPosT += thall
+                cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
+
+                passGamma = cand.RecoNeutron
+                passCyl = (not inChargedCylinder(cylinders, cand))
+    
+                # Veto the event if it could have come from background
+                passVeto = (not isVeto(veto_time_vtx, cand))
+
+                np = ROOT.TVector3( cand.nPosX, cand.nPosY, cand.nPosZ )
+                reco_KE = GetRecoE(vtx,np,cand.nPosT-reco_t0)
+                if reco_KE is None or reco_KE < 5.: continue # unphysical neutron
+
+                cat = "halln" if true_neutron else "hallg"
+
+                h_dict["reco"][cat]["none"].Fill( reco_KE )
+                if passGamma:
+                    h_dict["cyl_min"][cat].Fill( mind(cylinders,cand) )
+                    h_dict["iso_cyl"][cat].Fill( cand.nIso, mind(cylinders,cand) )
+
+                    h_dict["reco"][cat]["gamma"].Fill( reco_KE )
+                    if passCyl: 
+                        h_dict["reco"][cat]["cyl"].Fill( reco_KE )
+                        dtd = vetoParams( veto_time_vtx, cand )
+                        dt_min = 9999999999.9
+                        d_min = None
+                        for idx, deltat, d in dtd:
+                            h_dict["dt_d"][cat].Fill( deltat, d/100. )
+                            if deltat > -5 and deltat < dt_min:
+                                dt_min = deltat
+                                d_min = d/100.
+                        if d_min is not None: h_dict["d_dt_min"][cat].Fill( d_min )
+                        else: h_dict["d_dt_min"][cat].Fill( 9.99 )
+                    if passVeto: 
+                        h_dict["reco"][cat]["veto"].Fill( reco_KE )
+                        h_dict["iso"][cat].Fill( cand.nIso )
+                        if cand.nIso > 50.:
+                            h_dict["reco"][cat]["iso"].Fill( reco_KE )
+    
             ihall += 1
             if ihall == Nhall: # we've run out of hall events; loop again
                 print "We've run through %d hall events; resetting" % Nhall
@@ -351,12 +361,14 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
         for trock in rock_times:
             RockEvent = Event(RTree, irock)
 
-            rock_candidates = neutron_cut(RockEvent.candidates, vtx)
+            rock_candidates = cylinder_cut(RockEvent.candidates, vtx)
 
             for cand in rock_candidates:
                 true_neutron = (cand.nTruePDG == 2212 or cand.nTruePDG == 2112)
                 cand.nPosT += trock
                 cand.nPosT += random.normalvariate(0., dt) # smear by timing uncertainty
+
+                passGamma = cand.RecoNeutron
 
                 passCyl = (not inChargedCylinder(cylinders, cand))
     
@@ -370,27 +382,29 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None):
 
                 cat = "rockn" if true_neutron else "rockg"
 
-                h_dict["cyl_min"][cat].Fill( mind(cylinders,cand) )
-                h_dict["iso_cyl"][cat].Fill( cand.nIso, mind(cylinders,cand) )
+                h_dict["reco"][cat]["none"].Fill( reco_KE )
+                if passGamma:
+                    h_dict["cyl_min"][cat].Fill( mind(cylinders,cand) )
+                    h_dict["iso_cyl"][cat].Fill( cand.nIso, mind(cylinders,cand) )
 
-                h_dict["reco"][cat]["gamma"].Fill( reco_KE )
-                if passCyl: 
-                    h_dict["reco"][cat]["cyl"].Fill( reco_KE )
-                    dtd = vetoParams( veto_time_vtx, cand )
-                    dt_min = 9999999999.9
-                    d_min = None
-                    for idx, deltat, d in dtd:
-                        h_dict["dt_d"][cat].Fill( deltat, d/100. )
-                        if deltat > -5 and deltat < dt_min:
-                            dt_min = deltat
-                            d_min = d/100.
-                    if d_min is not None: h_dict["d_dt_min"][cat].Fill( d_min )
-                if passCyl and passVeto: 
-                    h_dict["reco"][cat]["veto"].Fill( reco_KE )
-                    h_dict["iso"][cat].Fill( cand.nIso )
-                if passCyl and passVeto and cand.nIso > 50.:
-                    h_dict["reco"][cat]["iso"].Fill( reco_KE )
-
+                    h_dict["reco"][cat]["gamma"].Fill( reco_KE )
+                    if passCyl: 
+                        h_dict["reco"][cat]["cyl"].Fill( reco_KE )
+                        dtd = vetoParams( veto_time_vtx, cand )
+                        dt_min = 9999999999.9
+                        d_min = None
+                        for idx, deltat, d in dtd:
+                            h_dict["dt_d"][cat].Fill( deltat, d/100. )
+                            if deltat > -5 and deltat < dt_min:
+                                dt_min = deltat
+                                d_min = d/100.
+                        if d_min is not None: h_dict["d_dt_min"][cat].Fill( d_min )
+                        else: h_dict["d_dt_min"][cat].Fill( 9.99 )
+                    if passVeto: 
+                        h_dict["reco"][cat]["veto"].Fill( reco_KE )
+                        h_dict["iso"][cat].Fill( cand.nIso )
+                        if cand.nIso > 50.:
+                            h_dict["reco"][cat]["iso"].Fill( reco_KE )
             irock += 1
             if irock == Nrock: # we've run out of rock events; loop again
                 print "We've run through %d rock events; resetting" % Nrock
@@ -449,7 +463,7 @@ if __name__ == "__main__":
     print "Got %1.3g POT rock and %1.3g POT hall" % (rock_pot, enc_pot)
     print "Mean events per spill (%1.3g POT): rock %1.1f hall %1.1f" % (spill_pot, muRock, muHall)
 
-    loop( GTree, RTree, HTree, thresh, dt, muRock, muHall, h_dict, 60000 )
+    loop( GTree, RTree, HTree, thresh, dt, muRock, muHall, h_dict )
 
     tfout = ROOT.TFile( args.outfile, "RECREATE" )
     for key in h_dict:

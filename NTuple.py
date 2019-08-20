@@ -100,9 +100,24 @@ class Candidate:
         self.nParTID = t_nParTID[idx]
         self.nPrimTID = t_nPrimTID[idx]
 
+        # additional externally-set cut variables
+        self.RecoGamma = False
+        self.RecoNeutron = False
+        self.nCylinder = 0
+
     def getPos(self):
         pos = TVector3( self.nPosX, self.nPosY, self.nPosZ )
         return pos
+
+    def UpCylinder(self):
+        self.nCylinder += 1
+
+    def SetRecoGamma(self):
+        self.RecoGamma = True
+        self.RecoNeutron = False
+    def SetRecoNeutron(self):
+        self.RecoGamma = False
+        self.RecoNeutron = True
 
 class PrimaryParticle:
     def __init__(self, idx):
