@@ -49,6 +49,31 @@ class Cluster:
         self.energyFracPar = None
         self.energyFracPrim = None
 
+    def sortHits(self):
+        output_dict = {}
+        for hit in self.hits:
+            key1 = None ; key2 = None
+            for i in range(1, 9):
+                if 'stave0%d'%i in hit.getVolName():
+                    key1 = 'stave0%d'%i
+            for i in range(1,10):
+                if 'layer_0%d'%i in hit.getVolName():
+                    key2 = 'layer_0%d'%i
+            for i in range(10, 61):
+                if 'layer_%d'%i in hit.getVolName():
+                    key2 = 'layer_%d'%i
+
+            if key1 not in output_dict:
+                output_dict[key1] = {}
+            if key2 not in output_dict:
+                output_dict[key1][key2] = []
+            if key1 is None or key2 is None:
+                continue
+            else:
+                output_dict[key1][key2].append(hit)
+        return output_dict
+
+
     def addHit(self, hit):
         # if htis are added, cluster-level variables will be wrong
         # ensure that wrong info is not used by setting everything to garbage
