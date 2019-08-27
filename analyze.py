@@ -121,16 +121,16 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
     event = ROOT.TG4Event()
     events.SetBranchAddress("Event",ROOT.AddressOf(event))
 
-    Geo_Pos = {}
-    Geo_Pos['TPC']     = [1.030, -215.090, 587.681]
-    Geo_Pos['stave01'] = [-0.590, -460.882, 384.655]
-    Geo_Pos['stave02'] = [0.952, -501.006 , 601.369]
-    Geo_Pos['stave03'] = [-2.532, -390.886 , 774.698]
-    Geo_Pos['stave04'] = [-1.855, -196.919 , 883.881]
-    Geo_Pos['stave05'] = [0.148, 18.491 , 774.285]
-    Geo_Pos['stave06'] = [-0.337, 84.401 , 552.696]
-    Geo_Pos['stave07'] = [-0.277, -24.731 , 351.299]
-    Geo_Pos['stave08'] = [0.153, -245.152 , 285.148]
+#    Geo_Pos = {}
+#    Geo_Pos['TPC']     = [1.030, -215.090, 587.681]
+#    Geo_Pos['stave01'] = [-0.590, -460.882, 384.655]
+#    Geo_Pos['stave02'] = [0.952, -501.006 , 601.369]
+#    Geo_Pos['stave03'] = [-2.532, -390.886 , 774.698]
+#    Geo_Pos['stave04'] = [-1.855, -196.919 , 883.881]
+#    Geo_Pos['stave05'] = [0.148, 18.491 , 774.285]
+#    Geo_Pos['stave06'] = [-0.337, 84.401 , 552.696]
+#    Geo_Pos['stave07'] = [-0.277, -24.731 , 351.299]
+#    Geo_Pos['stave08'] = [0.153, -245.152 , 285.148]
 
     N = events.GetEntries()
     for ient in range(0, N):
@@ -276,8 +276,8 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         # Fill the output ntuple
         t_nCandidates[0] = 0
         for cluster in clusters:
-            temp_keys = [[(key1, key2) for key2 in cluster.sortHits()[key1]] for key1 in cluster.sortHits()]
-            print(temp_keys)
+            #temp_keys = [[(key1, key2) for key2 in cluster.sortHits()[key1]] for key1 in cluster.sortHits()]
+            #print(temp_keys)
             #import sys; #sys.exit()
             cluster.CalcStuff()
 

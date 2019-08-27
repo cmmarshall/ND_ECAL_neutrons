@@ -3,6 +3,17 @@
 import ROOT
 from math import sqrt
 
+Geo_Pos = {}
+Geo_Pos['TPC'] = ROOT.TVector3(0, -215.106 , 585.300)
+Geo_Pos['BarrelECal_stave01'] = ROOT.TVector3(0, -447.736 , 394.210)
+Geo_Pos['BarrelECal_stave02'] = ROOT.TVector3(0, -514.169 , 616.074)
+Geo_Pos['BarrelECal_stave03'] = ROOT.TVector3(0, -404.492 , 818.049)
+Geo_Pos['BarrelECal_stave04'] = ROOT.TVector3(0, -184.466 , 883.584)
+Geo_Pos['BarrelECal_stave05'] = ROOT.TVector3(0, 18.503 , 773.929)
+Geo_Pos['BarrelECal_stave06'] = ROOT.TVector3(0, 84.193 , 552.650)
+Geo_Pos['BarrelECal_stave07'] = ROOT.TVector3(0, -25.400 , 351.026)
+Geo_Pos['BarrelECal_stave08'] = ROOT.TVector3(0, -246.454 , 285.059)
+
 class Hit:
 
     def __init__(self, pos, volName, energy, time, pdg, neutral_tid, primary_tid):
@@ -12,7 +23,9 @@ class Hit:
         self.time = time
         self.pdg = pdg
         self.neutral_tid = neutral_tid # TID of parent photon/neutron
-        self.primary_tid = primary_tid # TID of primary parent
+        self.primary_tid = primary_tid # TID of primary parent    
+
+
 
     def getPos(self):
         return self.pos
@@ -48,30 +61,111 @@ class Cluster:
         self.sigmas = None
         self.energyFracPar = None
         self.energyFracPrim = None
+        self.voxhits = None
+
+    def Voxelize(self):
+        self.voxhits = {} #Thing keyed by voxel
+        hits = self.sortHits()
+        Cart = {}; Vec = {}
+        Cart[1] = ROOT.TVector3(1,0,0)
+        Cart[2] = ROOT.TVector3(0,1,0)
+        Cart[3] = ROOT.TVector3(0,0,1)
+        for key in hits:
+            if 'Barrel' in key:
+                Gkey = 'BarrelECal_stave0'
+                for i in range(1, 9):
+                    if 'stave0%d'%i in key:
+                        Gkey += str(i) 
+                TempMag = (Geo_Pos[Gkey] - Geo_Pos['TPC']).Mag()            
+                Vec[3] = (Geo_Pos[Gkey] - Geo_Pos['TPC'])/TempMag
+                Vec[1] = ROOT.TVector3(1,0,0)
+                Vec[2] = Vec[3].Cross(Vec[1])
+            elif 'Endcap' in key:
+                Vec[1] = ROOT.TVector3(1,0,0)
+                Vec[2] = ROOT.TVector3(0,1,0)
+                Vec[3] = ROOT.TVector3(0,0,1)
+
+            M = ROOT.TMatrixD(3,3)
+            for i in range(3):
+                for j in range(3):
+                    M[i][j] = Vec[i].Dot(Cart[j])
+            
+            for hit in hits[key]:
+                Pos = hit.getPos()
+                Pos = M*Pos
+                VoxX = int(Pos.X()/2.2); VoxY = int(Pos.Y()/2.2)
+                Vox = '(%d,%d,%s)'%(key, VoxX, VoxY)
+                if Vox not in output:
+                    self.voxhits[Vox] = []
+                self.voxhits[Vox].append(hit)
+           
 
     def sortHits(self):
         output_dict = {}
         for hit in self.hits:
-            key1 = None ; key2 = None
-            for i in range(1, 9):
-                if 'stave0%d'%i in hit.getVolName():
-                    key1 = 'stave0%d'%i
-            for i in range(1,10):
-                if 'layer_0%d'%i in hit.getVolName():
-                    key2 = 'layer_0%d'%i
-            for i in range(10, 61):
-                if 'layer_%d'%i in hit.getVolName():
-                    key2 = 'layer_%d'%i
-
-            if key1 not in output_dict:
-                output_dict[key1] = {}
-            if key2 not in output_dict:
-                output_dict[key1][key2] = []
-            if key1 is None or key2 is None:
-                continue
+	    volName = hit.getVolName()
+            key = ''
+            if 'Barrel' in volName:
+                key += 'Barrel'
             else:
-                output_dict[key1][key2].append(hit)
-        return output_dict
+                key += 'Endcap'
+
+            if key == '':
+                print('What the actual hell. The volName is %s'%(volName))
+                continue
+
+            key += 'ECal'
+
+            for i in range(1, 9):
+                if 'stave0%d'%i in volName:
+                     key += '_stave0%d'%i
+            
+            
+            for i in range(1, 61):
+                temp_str = 'layer%d'
+                if i < 10: temp_str = 'layer%0d'
+                if temp_str in volName:
+                    key += ('_' + temp_str)
+            
+            if 'layer' not in key or 'stave' not in key:
+                print('What the actual hell. The volName is %s' %(volName))
+                continue   
+            
+            if key not in output_dict:
+                output_dict[key] = []
+            
+            output_dict[key].append(Hit)
+    	 
+       	
+    
+
+#    def sortHits(self):
+#        output_dict = {}
+#        for hit in self.hits:
+#            key1 = None ; key2 = None
+#            for i in range(1, 9):
+#                if 'stave0%d'%i in hit.getVolName():
+#                    key1 = 'stave0%d'%i
+#            for i in range(1,10):
+#                if 'layer_0%d'%i in hit.getVolName():
+#                    key2 = 'layer%d'%i
+#            for i in range(10, 61):
+#                if 'layer_%d'%i in hit.getVolName():
+#                    key2 = 'layer%d'%i
+#
+#            if key1 is None or key2 is None:
+#                print('ALERT: Hit is in %s')
+#
+#            key = key1 + key2
+           # if key1 not in output_dict:
+           #     output_dict[key1] = {}
+           # if key2 not in output_dict:
+           #     output_dict[key1][key2] = []
+           # if key1 is None or key2 is None:
+           #     continue
+           # else:
+#            output_dict[key1][key2].append(hit)
+#        return output_dict
 
 
     def addHit(self, hit):
