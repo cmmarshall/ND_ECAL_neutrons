@@ -116,11 +116,68 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
-def loop( events, tgeo, tree, cluster_gap = 10 ):
+#def TC_Aux_Method(voxes):
+  
+
+def Topological_Cut(vox_hits):
+    cut = False
+    voxes = [key.split(',') for key in vox_hits]
+    for vox in voxes:
+        vox[0] = int(vox[0]); vox[1] = int(vox[1])
+        aux_vox = {}
+
+        #X check
+        aux_vox['11'] = [vox[0] + 1, vox[1], vox[2]]; aux_vox['12'] = [vox[0] + 2, vox[1], vox[2]]
+        #Y check
+        aux_vox['21'] = [vox[0], vox[1] + 1, vox[2]]; aux_vox['22'] = [vox[0], vox[1] + 2, vox[2]]
+        #Z check
+        aux_vox['31'] = [vox[0], vox[1],  vox[2][:-1] + str(int(vox[2][-1:]) + 1)]
+        aux_vox['32'] = [vox[0], vox[1], vox[2][:-1] + str(int(vox[2][-1:]) + 2)]
+
+        #XY check        
+        aux_vox['41'] = [vox[0] + 1, vox[1] + 1, vox[2]]; aux_vox['42'] = [vox[0] + 2, vox[1] + 2, vox[2]]
+        #YZ check
+        aux_vox['51'] = [vox[0] , vox[1] + 1, vox[2][:-1] + str(int(vox[2][-1:]) + 1) ]; aux_vox['52'] = [vox[0] , vox[1] + 2, vox[2][:-1] + str(int(vox[2][-1:]) + 2)]
+        #XZ check
+        aux_vox['61'] = [vox[0] + 1 , vox[1], vox[2][:-1] + str(int(vox[2][-1:]) + 1) ]; aux_vox['62'] = [vox[0] + 2 , vox[1], vox[2][:-1] + str(int(vox[2][-1:]) + 2)]
+         
+        for i in range(6):
+            str1 = str(i+1) + '1'; str2 = str(i+1) + '2'
+            if aux_vox[str1] in voxes and aux_vox[str2] in voxes:
+                cut = True
+                return cut
+    return cut  
+    
+
+def Initialize_Hist(h_dict):
+    #Number of Neutrons that make it through/number of neutrons
+    h_dict['Neutron_Efficiency'] = ROOT.TH1D('Neutron_Efficiency', 'Neutron Efficiency; Energy (MeV);', 100, 0, 600)
+    h_dict['Neutron_Energy'] = ROOT.TH1D('Neutron Energy Distribution', 'Neutron Energy Distribution; Energy(MeV);', 100, 0, 600)
+
+    h_dict['Photon_Rejection'] = ROOT.TH1D('Photon_Rejection', 'Photon Rejection Percentage; Energy (MeV);', 100, 0, 600)
+    h_dict['Photon_Energy'] = ROOT.TH1D('Photon_Energy', 'Photon Energy Distribution; Photon Energy (MeV);', 100, 0, 600)
+    return h_dict
+
+
+
+
+#def TC_Benchmark():
+
+
+
+
+
+
+
+
+def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
 
     event = ROOT.TG4Event()
     events.SetBranchAddress("Event",ROOT.AddressOf(event))
+    if verbose: h_dict = {}
+    if verbose: Initialize_Hist(h_dict)
 
+   
 #    Geo_Pos = {}
 #    Geo_Pos['TPC']     = [1.030, -215.090, 587.681]
 #    Geo_Pos['stave01'] = [-0.590, -460.882, 384.655]
@@ -276,11 +333,10 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         # Fill the output ntuple
         t_nCandidates[0] = 0
         for cluster in clusters:
-            #temp_keys = [[(key1, key2) for key2 in cluster.sortHits()[key1]] for key1 in cluster.sortHits()]
-            #print(temp_keys)
-            #import sys; #sys.exit()
             cluster.CalcStuff()
-
+#            print([(key, len(val)) for key,val in cluster.getVoxHits().items()])
+            TC = Topological_Cut(cluster.getVoxHits())
+            #print(TC)
             cpos = cluster.getCentroid()
             t_nIso[t_nCandidates[0]] = 999999.9
             for hit in charged_hits:
@@ -302,6 +358,16 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
             t_nNcell[t_nCandidates[0]] = cluster.getNcell(0.5)
             parent = event.Trajectories[cluster.getTrueParent()]
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
+            t_nCandidates[0] += 1
+            if verbose:
+                if parent.PDGCode == 2112:
+                    h_dict['Neutron_Energy'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
+                    if not TC:
+                        h_dict['Neutron_Efficiency'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
+                if parent.PDGCode == 22:
+                    h_dict['Photon_Energy'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
+                    if TC:
+                        h_dict['Photon_Rejection'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
 
             #vtx = ROOT.TVector3( t_vtxX[0], t_vtxY[0], t_vtxZ[0] )
             #dt = cluster.getTime()
@@ -318,13 +384,23 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
             #                                                                                               tid_pdg_ke[cluster.getPrimary()][0],
             #                                                                                               tid_pdg_ke[cluster.getPrimary()][1])
 
-            t_nCandidates[0] += 1
             if t_nCandidates[0] == MAXCANDIDATES:
                 print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
                 break
-
         tree.Fill()
 
+    if verbose: h_dict['Neutron_Efficiency'].Divide(h_dict['Neutron_Energy'])
+    if verbose: h_dict['Photon_Rejection'].Divide(h_dict['Photon_Energy'])
+
+
+    if verbose:
+        c = ROOT.TCanvas()
+        Output = ROOT.TFile('TrueNeutron.root', "RECREATE")
+        for key in h_dict:
+            h_dict[key].Write()
+            h_dict[key].Draw()
+            c.Print('%s.png'%key)
+        del Output
 
 
 
@@ -341,12 +417,14 @@ if __name__ == "__main__":
     parser.add_option('--geom',help='top volume of interactions', default="GArTPC")
     parser.add_option('--cgap',help='Set Cluster Gap', default=5.)
     parser.add_option('--grid',action='store_true', help='Grid mode')
+    parser.add_option('--verbose', action ='store_true', help='Verbose Mode')
     # python analyze --topdir /pnfs/dune/persistent/users/marshalc/neutronSim/EDep --first_run 0 --last_run 0 --geom DetEnclosure --outfile out.root
 
     (args, dummy) = parser.parse_args()
 
     rhcarg = "--rhc" if args.rhc else ""
     gridarg = "--grid" if args.grid else ""
+    verbose = True if args.verbose else False
     cppopts = ['./getPOT', '--topdir', args.topdir, '--first', str(args.first_run), '--last', str(args.last_run), '--geom', args.geom, rhcarg, gridarg]
     sp = subprocess.Popen(cppopts, stdout=subprocess.PIPE, stderr=None)
     the_POT = float(sp.communicate()[0])
@@ -425,7 +503,7 @@ if __name__ == "__main__":
 
         print "Looping over: %s" % fname
         fout.cd()
-        loop( events, tgeo, tree, cluster_gap=float(args.cgap))
+        loop( events, tgeo, tree, cluster_gap=float(args.cgap), verbose = verbose)
         tf.Close()
 
     tree.Write()

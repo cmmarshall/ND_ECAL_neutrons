@@ -14,6 +14,15 @@ Geo_Pos['BarrelECal_stave06'] = ROOT.TVector3(0, 84.193 , 552.650)
 Geo_Pos['BarrelECal_stave07'] = ROOT.TVector3(0, -25.400 , 351.026)
 Geo_Pos['BarrelECal_stave08'] = ROOT.TVector3(0, -246.454 , 285.059)
 
+def Matrix_Multiply(M, vec): #Matrix Multiplication Method because I can't figure out what is wrong with TMatrixD
+    vect = [vec.X(), vec.Y(), vec.Z()]
+    output = [0,0,0]
+    for i in range(len(M)):
+        for j in range(3):
+            output[i] += M[i][j]*vect[j]
+    return ROOT.TVector3(output[0],output[1],output[2])
+
+
 class Hit:
 
     def __init__(self, pos, volName, energy, time, pdg, neutral_tid, primary_tid):
@@ -67,9 +76,9 @@ class Cluster:
         self.voxhits = {} #Thing keyed by voxel
         hits = self.sortHits()
         Cart = {}; Vec = {}
-        Cart[1] = ROOT.TVector3(1,0,0)
-        Cart[2] = ROOT.TVector3(0,1,0)
-        Cart[3] = ROOT.TVector3(0,0,1)
+        Cart[0] = ROOT.TVector3(1,0,0)
+        Cart[1] = ROOT.TVector3(0,1,0)
+        Cart[2] = ROOT.TVector3(0,0,1)
         for key in hits:
             if 'Barrel' in key:
                 Gkey = 'BarrelECal_stave0'
@@ -77,25 +86,25 @@ class Cluster:
                     if 'stave0%d'%i in key:
                         Gkey += str(i) 
                 TempMag = (Geo_Pos[Gkey] - Geo_Pos['TPC']).Mag()            
-                Vec[3] = (Geo_Pos[Gkey] - Geo_Pos['TPC'])/TempMag
-                Vec[1] = ROOT.TVector3(1,0,0)
-                Vec[2] = Vec[3].Cross(Vec[1])
+                Vec[2] = (Geo_Pos[Gkey] - Geo_Pos['TPC'])*(1/TempMag)
+                Vec[0] = ROOT.TVector3(1,0,0)
+                Vec[1] = Vec[2].Cross(Vec[0])
             elif 'Endcap' in key:
-                Vec[1] = ROOT.TVector3(1,0,0)
-                Vec[2] = ROOT.TVector3(0,1,0)
-                Vec[3] = ROOT.TVector3(0,0,1)
+                Vec[2] = ROOT.TVector3(1,0,0)
+                Vec[0] = ROOT.TVector3(0,1,0)
+                Vec[1] = ROOT.TVector3(0,0,1)
 
-            M = ROOT.TMatrixD(3,3)
+            M = [[0,0,0],[0,0,0],[0,0,0]]
             for i in range(3):
                 for j in range(3):
                     M[i][j] = Vec[i].Dot(Cart[j])
             
-            for hit in hits[key]:
+            for hit in hits[key]: 
                 Pos = hit.getPos()
-                Pos = M*Pos
+                Pos = Matrix_Multiply(M,Pos)
                 VoxX = int(Pos.X()/2.2); VoxY = int(Pos.Y()/2.2)
-                Vox = '(%d,%d,%s)'%(key, VoxX, VoxY)
-                if Vox not in output:
+                Vox = '%d,%d,%s'%(VoxX, VoxY, key)
+                if Vox not in self.voxhits:
                     self.voxhits[Vox] = []
                 self.voxhits[Vox].append(hit)
            
@@ -111,7 +120,7 @@ class Cluster:
                 key += 'Endcap'
 
             if key == '':
-                print('What the actual hell. The volName is %s'%(volName))
+                print('What the actual hell. The key is %s. The volName is %s.'%(key, volName))
                 continue
 
             key += 'ECal'
@@ -122,20 +131,22 @@ class Cluster:
             
             
             for i in range(1, 61):
-                temp_str = 'layer%d'
-                if i < 10: temp_str = 'layer%0d'
+                temp_str = 'layer_%d'%i
+                if i < 10:
+                    temp_str = 'layer_0%d'%i
+                #print(temp_str, volName)
                 if temp_str in volName:
-                    key += ('_' + temp_str)
+                    key += '_'; key+= temp_str
             
             if 'layer' not in key or 'stave' not in key:
-                print('What the actual hell. The volName is %s' %(volName))
+                print('What the actual hell. The key is %s. The volName is %s' %(key, volName))
                 continue   
             
             if key not in output_dict:
                 output_dict[key] = []
             
-            output_dict[key].append(Hit)
-    	 
+            output_dict[key].append(hit)
+    	return output_dict
        	
     
 
@@ -213,7 +224,9 @@ class Cluster:
         pdg_energy = {} # map from PDG making energy deposits (i.e. electron, proton) --> energy
         par_energy = {} # map of neutral parent TID (i.e. neutron, photon) --> energy
         prim_energy = {} # map of primary parent TID --> energy
-
+        
+        self.Voxelize()
+        
         for hit in self.hits:
             self.centroid += (hit.getEnergy() * hit.getPos()) # scale position 3-vector by energy
             self.energy += hit.getEnergy()
@@ -274,6 +287,12 @@ class Cluster:
                 self.energyFracPrim = max_prim / self.energy
 
     # simple getters for the calculated things
+
+    def getVoxHits(self):
+        if self.voxhits is None:
+            CalcStuff()
+        return self.voxhits
+
     def getEnergy(self):
         if self.energy is None:
             CalcStuff()
