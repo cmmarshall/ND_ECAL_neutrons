@@ -91,6 +91,8 @@ class Cluster:
         self.energy = 0.
         self.time = 999999999999.9
 
+        self.nCylinder = 1
+
         pdg_energy = {} # map from PDG making energy deposits (i.e. electron, proton) --> energy
         par_energy = {} # map of neutral parent TID (i.e. neutron, photon) --> energy
         prim_energy = {} # map of primary parent TID --> energy

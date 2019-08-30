@@ -1,5 +1,6 @@
 from array import array
 from ROOT import TVector3
+from math import sqrt
 
 MAXCANDIDATES = 1000
 MAXNEUTRONS = 100
@@ -42,6 +43,7 @@ t_pExitZ = array( 'd', MAXNEUTRONS*[0.] )
 t_pExitdX = array( 'd', MAXNEUTRONS*[0.] )
 t_pExitdY = array( 'd', MAXNEUTRONS*[0.] )
 t_pExitdZ = array( 'd', MAXNEUTRONS*[0.] )
+t_pKinkAngle = array( 'd', MAXNEUTRONS*[0.] )
 
 def setBranches( tree ):
     tree.SetBranchAddress( "run", t_run )
@@ -81,6 +83,7 @@ def setBranches( tree ):
     tree.SetBranchAddress( "pExitdX", t_pExitdX )
     tree.SetBranchAddress( "pExitdY", t_pExitdY )
     tree.SetBranchAddress( "pExitdZ", t_pExitdZ )
+    tree.SetBranchAddress( "pKinkAngle", t_pKinkAngle )
 
 class Candidate:
     def __init__(self, idx):
@@ -104,10 +107,24 @@ class Candidate:
         self.RecoGamma = False
         self.RecoNeutron = False
         self.nCylinder = 0
+        self.inNeutronCylinder = False
+        self.inGammaCylinder = False
 
     def getPos(self):
         pos = TVector3( self.nPosX, self.nPosY, self.nPosZ )
         return pos
+
+    def getDepth(self):
+        ret = None
+        if abs(self.nPosX) > 356.: # endcap
+            ret = min(abs(self.nPosX+356.), abs(self.nPosX-356.))
+        elif sqrt( (self.nPosY+217.)**2 + (self.nPosZ-585.)**2 ) > 250.: # barrel
+            ret = sqrt( (self.nPosY+217.)**2 + (self.nPosZ-585.)**2 ) - 250.
+        else:
+            print "N pos X = (%1.0f, %1.0f, %1.0f) R = %1.0f" % (self.nPosX, self.nPosY, self.nPosZ, sqrt( (self.nPosY+217.)**2 + (self.nPosZ-585.)**2 ))
+            ret = -1.
+
+        return ret
 
     def UpCylinder(self):
         self.nCylinder += 1
@@ -119,16 +136,18 @@ class Candidate:
         self.RecoGamma = False
         self.RecoNeutron = True
 
+
 class PrimaryParticle:
     def __init__(self, idx):
         self.pTID = t_pTID[idx]
         self.pPDG = t_pPDG[idx]
         self.pKE = t_pKE[idx]
+        self.pKinkAngle = t_pKinkAngle[idx] * 180. / 3.1416
 
         self.pPos = None
         self.pDir = None
         if t_pExitdX[idx] > -9999.:
-            self.pPos = TVector3( t_pExitX[idx]/10., t_pExitY[idx]/10., t_pExitZ[idx]/10. )
+            self.pPos = TVector3( t_pExitX[idx], t_pExitY[idx], t_pExitZ[idx] )
             self.pDir = TVector3( t_pExitdX[idx], t_pExitdY[idx], t_pExitdZ[idx] )
 
 class Event:

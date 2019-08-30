@@ -52,6 +52,7 @@ t_pExitZ = array( 'd', MAXNEUTRONS*[0.] )
 t_pExitdX = array( 'd', MAXNEUTRONS*[0.] )
 t_pExitdY = array( 'd', MAXNEUTRONS*[0.] )
 t_pExitdZ = array( 'd', MAXNEUTRONS*[0.] )
+t_pKinkAngle = array( 'd', MAXNEUTRONS*[0.] )
 
 def setToBogus():
     t_run[0] = 0
@@ -116,6 +117,37 @@ def photonParent( event, tid ):
     else: # if earliest EM particle is electron/positron, then you have a track entering the detector and we don't need to worry about it
         return -1
 
+def fillChargedTrk( pts, idx, tgeo ):
+    lastGArPt = None
+    lastDir = None
+    t_pKinkAngle[idx] = 0.
+    for pt in pts:
+        node = tgeo.FindNode( pt.Position.X(), pt.Position.Y(), pt.Position.Z() )
+        volName = node.GetName()
+        if "TPC" in volName: # still in Gas TPC
+            thisPt = pt.Position.Vect()
+            if lastDir is not None: # third traj point this should be true
+                thisDir = (thisPt-lastGArPt).Unit()
+                angle = thisDir.Angle(lastDir)
+                if angle > t_pKinkAngle[idx]:
+                    t_pKinkAngle[idx] = angle
+            if lastGArPt is not None: # second traj point this should be true
+                lastDir = (thisPt-lastGArPt).Unit()
+            lastGArPt = pt.Position.Vect()
+        else: # we just poked out of the Gas TPC
+            if lastGArPt is None: # vertex isn't in the gas TPC, this variable is irrelevant for hall/rock background
+                break
+            thisPt = pt.Position.Vect()
+
+            t_pExitX[idx] = lastGArPt.x()/10.
+            t_pExitY[idx] = lastGArPt.y()/10.
+            t_pExitZ[idx] = lastGArPt.z()/10.
+            t_pExitdX[idx] = (thisPt-lastGArPt).Unit().x()
+            t_pExitdY[idx] = (thisPt-lastGArPt).Unit().y()
+            t_pExitdZ[idx] = (thisPt-lastGArPt).Unit().z()
+            break
+
+
 def loop( events, tgeo, tree, cluster_gap = 10 ):
 
     event = ROOT.TG4Event()
@@ -167,26 +199,34 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
 
                 t_pParticles[0] += 1
 
-            for tid in tid_idx:
-                pts = event.Trajectories[tid].Points
-                lastPt = None
-                for pt in pts:
-                    node = tgeo.FindNode( pt.Position.X(), pt.Position.Y(), pt.Position.Z() )
-                    volName = node.GetName()
-                    if "TPC" in volName: # still in Gas TPC
-                        lastPt = pt.Position.Vect()
-                    else: # we just poked out of the Gas TPC
-                        if lastPt is None: # vertex isn't in the gas TPC, this variable is irrelevant for hall/rock background
-                            break
-                        idx = tid_idx[tid]
-                        thisPt = pt.Position.Vect()
-                        t_pExitX[idx] = lastPt.x()
-                        t_pExitY[idx] = lastPt.y()
-                        t_pExitZ[idx] = lastPt.z()
-                        t_pExitdX[idx] = (thisPt-lastPt).Unit().x()
-                        t_pExitdY[idx] = (thisPt-lastPt).Unit().y()
-                        t_pExitdZ[idx] = (thisPt-lastPt).Unit().z()
-
+            for traj in event.Trajectories:
+                tid = traj.TrackId
+                if tid in tid_idx: # primary charged particle; add its exit information
+                    pts = traj.Points
+                    fillChargedTrk( pts, tid_idx[tid], tgeo )
+                elif isCharged(traj.PDGCode) and traj.ParentId in tid_idx and abs(traj.PDGCode) not in [11, 13]:
+                    # charged secondary, but excluding muons/electrons from pion/kaon decay, which won't produce hadronic messes
+                    hStart = traj.Points[0].Position.Vect()
+                    pidx = tid_idx[traj.ParentId]
+                    if "TPC" in tgeo.FindNode(hStart.x(), hStart.y(), hStart.z()).GetName(): # produced in gas TPC
+                        # check kink angle
+                        pTraj = event.Trajectories[traj.ParentId]
+                        if len(traj.Points) >= 2 and len(pTraj.Points) >= 2:
+                            parDir = pTraj.Points[-1].Position.Vect() - pTraj.Points[-2].Position.Vect()
+                            daughterDir = traj.Points[1].Position.Vect() - traj.Points[0].Position.Vect()
+                            angle = daughterDir.Angle(parDir)
+                            if t_pKinkAngle[pidx] is None or angle > t_pKinkAngle[pidx]:
+                                t_pKinkAngle[pidx] = angle
+                        hEnd = traj.Points[-1].Position.Vect()
+                        if not "TPC" in tgeo.FindNode(hEnd.x(), hEnd.y(), hEnd.z()).GetName():
+                            # exiting charged track add it
+                            t_pTID[t_pParticles[0]] = tid
+                            t_pPDG[t_pParticles[0]] = traj.PDGCode
+                            t_pKE[t_pParticles[0]] = traj.InitialMomentum.E() - traj.InitialMomentum.M()
+                            fillChargedTrk( pts, t_pParticles[0], tgeo )
+                            tid_idx[tid] = t_pParticles[0]
+                            t_pParticles[0] += 1
+                            
             ecal_hits = []
             for det in event.SegmentDetectors:
                 if "ECal" in det.first: # there are several sub-detectors that make up the ECal
@@ -274,9 +314,9 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 if (cpos-hit).Mag() < t_nIso[t_nCandidates[0]]:
                     t_nIso[t_nCandidates[0]] = (cpos-hit).Mag()
 
-            t_nPosX[t_nCandidates[0]] = cluster.getCentroid().x()
-            t_nPosY[t_nCandidates[0]] = cluster.getCentroid().y()
-            t_nPosZ[t_nCandidates[0]] = cluster.getCentroid().z()
+            t_nPosX[t_nCandidates[0]] = cpos.x()
+            t_nPosY[t_nCandidates[0]] = cpos.y()
+            t_nPosZ[t_nCandidates[0]] = cpos.z()
             t_nSigmaX[t_nCandidates[0]] = cluster.getSigmas()[0]
             t_nSigmaY[t_nCandidates[0]] = cluster.getSigmas()[1]
             t_nSigmaZ[t_nCandidates[0]] = cluster.getSigmas()[2]
@@ -290,20 +330,6 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
             parent = event.Trajectories[cluster.getTrueParent()]
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
 
-            #vtx = ROOT.TVector3( t_vtxX[0], t_vtxY[0], t_vtxZ[0] )
-            #dt = cluster.getTime()
-            #dx = (cluster.getCentroid() - vtx).Mag()
-            #beta = dx/(29.9792*dt)
-            #recoe = -1.
-            #if beta > 0. and beta < 1.:
-            #    recoe = 939.565*( 1./sqrt(1.-beta**2) - 1. )
-
-            #print "Neutron cluster due to %d, dt %1.1f dx %1.1f, reco E %1.1f, primary %d of %1.1f MeV" % (cluster.getTruePDG(), 
-            #                                                                                               dt, 
-            #                                                                                               dx, 
-            #                                                                                               recoe, 
-            #                                                                                               tid_pdg_ke[cluster.getPrimary()][0],
-            #                                                                                               tid_pdg_ke[cluster.getPrimary()][1])
 
             t_nCandidates[0] += 1
 
@@ -312,8 +338,6 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 break
 
         tree.Fill()
-
-
 
 
 if __name__ == "__main__":
@@ -380,6 +404,7 @@ if __name__ == "__main__":
     tree.Branch( "pExitdX", t_pExitdX, "pExitdX[pParticles]/D")
     tree.Branch( "pExitdY", t_pExitdY, "pExitdY[pParticles]/D")
     tree.Branch( "pExitdZ", t_pExitdZ, "pExitdZ[pParticles]/D")
+    tree.Branch( "pKinkAngle", t_pKinkAngle, "pKinkAngle[pParticles]/D")
 
     meta = ROOT.TTree( "potTree", "potTree" )
     t_pot = array( 'd', [0.] )
