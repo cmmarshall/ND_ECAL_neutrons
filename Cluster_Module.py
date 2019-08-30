@@ -102,7 +102,7 @@ class Cluster:
             for hit in hits[key]: 
                 Pos = hit.getPos()
                 Pos = Matrix_Multiply(M,Pos)
-                VoxX = int(Pos.X()/2.2); VoxY = int(Pos.Y()/2.2)
+                VoxX = int(Pos.X()/22); VoxY = int(Pos.Y()/22)
                 Vox = '%d,%d,%s'%(VoxX, VoxY, key)
                 if Vox not in self.voxhits:
                     self.voxhits[Vox] = []

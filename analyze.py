@@ -153,9 +153,13 @@ def Initialize_Hist(h_dict):
     #Number of Neutrons that make it through/number of neutrons
     h_dict['Neutron_Efficiency'] = ROOT.TH1D('Neutron_Efficiency', 'Neutron Efficiency; Energy (MeV);', 100, 0, 600)
     h_dict['Neutron_Energy'] = ROOT.TH1D('Neutron Energy Distribution', 'Neutron Energy Distribution; Energy(MeV);', 100, 0, 600)
+    h_dict['Neutron_NCells'] = ROOT.TH2D('Neutron_Cells', 'Number of Cells vs Neutron Energy; Neutron Energy (MeV); Number of Cells', 100, 0, 600, 50, 0, 50)
 
     h_dict['Photon_Rejection'] = ROOT.TH1D('Photon_Rejection', 'Photon Rejection Percentage; Energy (MeV);', 100, 0, 600)
     h_dict['Photon_Energy'] = ROOT.TH1D('Photon_Energy', 'Photon Energy Distribution; Photon Energy (MeV);', 100, 0, 600)
+    h_dict['Photon_NCells'] = ROOT.TH2D('Photon_Cells', 'Number of Cells vs Photon Energy; Photon Energy (MeV); Number of Cells', 100, 0, 600, 50, 0, 50)
+    h_dict['C_DisplayYZ'] = ROOT.TH2D('C_DisplayYZ', 'Cluster_Display; X-Position (cm); Y-Position (cm)', 400, -600, 200, 400, 200, 1000)
+
     return h_dict
 
 
@@ -331,12 +335,15 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
                         t_ECAL_vetoZ[0] = edep.Start.Z()/10.
 
         # Fill the output ntuple
-        t_nCandidates[0] = 0
-        for cluster in clusters:
+        t_nCandidates[0] = 0; photon_no = 0; dumb_bool = False
+        for cno, cluster in enumerate(clusters):
             cluster.CalcStuff()
-#            print([(key, len(val)) for key,val in cluster.getVoxHits().items()])
+            Testing_thing = [(key, len(val)) for key,val in cluster.getVoxHits().items()]
+            
+
+
             TC = Topological_Cut(cluster.getVoxHits())
-            #print(TC)
+            print(TC)
             cpos = cluster.getCentroid()
             t_nIso[t_nCandidates[0]] = 999999.9
             for hit in charged_hits:
@@ -359,13 +366,33 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
             parent = event.Trajectories[cluster.getTrueParent()]
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
             t_nCandidates[0] += 1
+
+            Testing_thing2 =  set([hit.getVolName() for hit in cluster.getHits()])
+            if parent.PDGCode == 22:
+                photon_no += 1
+                for thing in Testing_thing:
+                    print(thing)
+                print(Testing_thing2)
+                if parent.InitialMomentum.E() - parent.InitialMomentum.M() < -100:
+                    for hit in cluster.getHits():
+                        Pos = hit.getPos()
+                        h_dict['C_DisplayYZ'].Fill(Pos.Y(), Pos.Z())
+                    dumb_bool = True
+                    print('YOOOOOO', TC)
+                    break;
+            if dumb_bool:
+                break
+
+
             if verbose:
                 if parent.PDGCode == 2112:
                     h_dict['Neutron_Energy'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
+                    h_dict['Neutron_NCells'].Fill((parent.InitialMomentum.E() - parent.InitialMomentum.M()), len(cluster.getVoxHits()))
                     if not TC:
                         h_dict['Neutron_Efficiency'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
                 if parent.PDGCode == 22:
                     h_dict['Photon_Energy'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
+                    h_dict['Photon_NCells'].Fill((parent.InitialMomentum.E() - parent.InitialMomentum.M()), len(cluster.getVoxHits()))
                     if TC:
                         h_dict['Photon_Rejection'].Fill(parent.InitialMomentum.E() - parent.InitialMomentum.M())
 
@@ -388,7 +415,8 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
                 print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
                 break
         tree.Fill()
-
+        if dumb_bool:
+            break
     if verbose: h_dict['Neutron_Efficiency'].Divide(h_dict['Neutron_Energy'])
     if verbose: h_dict['Photon_Rejection'].Divide(h_dict['Photon_Energy'])
 
@@ -397,8 +425,12 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
         c = ROOT.TCanvas()
         Output = ROOT.TFile('TrueNeutron.root', "RECREATE")
         for key in h_dict:
-            h_dict[key].Write()
-            h_dict[key].Draw()
+            if 'NCells' in key:
+                h_dict[key].Write()
+                h_dict[key].Draw('colz')
+            else:
+                h_dict[key].Write()
+                h_dict[key].Draw()
             c.Print('%s.png'%key)
         del Output
 
