@@ -37,6 +37,15 @@ t_nSigmaZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nE = array( 'd', MAXCANDIDATES*[0.] )
 t_nIso = array( 'd', MAXCANDIDATES*[0.] )
 t_nNcell = array( 'i', MAXCANDIDATES*[0] )
+
+
+#Voxelized Branches
+t_nNcellV = array( 'i', MAXCANDIDATES*[0] )
+t_SigmaVX = array( 'i', MAXCANDIDATES*[0] )
+t_SigmaVY = array( 'i', MAXCANDIDATES*[0] )
+#t_SigmaVZ = array( 'd', MAXCANDIDATES*[0] )
+
+
 t_nMaxCell = array( 'd', MAXCANDIDATES*[0.] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
@@ -337,13 +346,13 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
         # Fill the output ntuple
         t_nCandidates[0] = 0; photon_no = 0; dumb_bool = False
         for cno, cluster in enumerate(clusters):
+            print('CNO: %d'%cno)
             cluster.CalcStuff()
             Testing_thing = [(key, len(val)) for key,val in cluster.getVoxHits().items()]
             
 
 
             TC = Topological_Cut(cluster.getVoxHits())
-            print(TC)
             cpos = cluster.getCentroid()
             t_nIso[t_nCandidates[0]] = 999999.9
             for hit in charged_hits:
@@ -356,6 +365,19 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
             t_nSigmaX[t_nCandidates[0]] = cluster.getSigmas()[0]
             t_nSigmaY[t_nCandidates[0]] = cluster.getSigmas()[1]
             t_nSigmaZ[t_nCandidates[0]] = cluster.getSigmas()[2]
+
+
+
+
+            t_nNcellV[t_nCandidates[0]]   = len(cluster.getVoxHits())
+            print(cluster.getSigmaVX(), cluster.getSigmaVY()) 
+            t_SigmaVX[t_nCandidates[0]]  = int(cluster.getSigmaVX() )
+            t_SigmaVY[t_nCandidates[0]]  = int(cluster.getSigmaVY())
+            #t_nSigmaVZ[t_nCandidates[0]]  = 
+          
+
+
+
             t_nPosT[t_nCandidates[0]] = cluster.getTime()
             t_nE[t_nCandidates[0]] = cluster.getEnergy()
             t_nTruePDG[t_nCandidates[0]] = cluster.getTruePDG()
@@ -367,21 +389,6 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
             t_nCandidates[0] += 1
 
-            Testing_thing2 =  set([hit.getVolName() for hit in cluster.getHits()])
-            if parent.PDGCode == 22:
-                photon_no += 1
-                for thing in Testing_thing:
-                    print(thing)
-                print(Testing_thing2)
-                if parent.InitialMomentum.E() - parent.InitialMomentum.M() < -100:
-                    for hit in cluster.getHits():
-                        Pos = hit.getPos()
-                        h_dict['C_DisplayYZ'].Fill(Pos.Y(), Pos.Z())
-                    dumb_bool = True
-                    print('YOOOOOO', TC)
-                    break;
-            if dumb_bool:
-                break
 
 
             if verbose:
@@ -484,9 +491,12 @@ if __name__ == "__main__":
     tree.Branch( "nSigmaX", t_nSigmaX, "nSigmaX[nCandidates]/D" )
     tree.Branch( "nSigmaY", t_nSigmaY, "nSigmaY[nCandidates]/D" )
     tree.Branch( "nSigmaZ", t_nSigmaZ, "nSigmaZ[nCandidates]/D" )
+    tree.Branch( "SigmaVX", t_SigmaVX, "SigmaVX[nCandidates]/I" )
+    tree.Branch( "SigmaVY", t_SigmaVY, "SigmaVY[nCandidates]/I" )
     tree.Branch( "nE", t_nE, "nE[nCandidates]/D" )
     tree.Branch( "nIso", t_nIso, "nIso[nCandidates]/D" )
     tree.Branch( "nNcell", t_nNcell, "nNcell[nCandidates]/I" )
+    tree.Branch( "nNcellV", t_nNcellV, "nNcellV[nCandidates]/I")
     tree.Branch( "nMaxCell", t_nMaxCell, "nMaxCell[nCandidates]/D" )
     tree.Branch( "nTruePDG", t_nTruePDG, "nTruePDG[nCandidates]/I" )
     tree.Branch( "nTrueKE", t_nTrueKE, "nTrueKE[nCandidates]/D" )

@@ -71,7 +71,8 @@ class Cluster:
         self.energyFracPar = None
         self.energyFracPrim = None
         self.voxhits = None
-
+        self.SigmaVX = None
+        self.SigmaVY = None
     def Voxelize(self):
         self.voxhits = {} #Thing keyed by voxel
         hits = self.sortHits()
@@ -102,12 +103,31 @@ class Cluster:
             for hit in hits[key]: 
                 Pos = hit.getPos()
                 Pos = Matrix_Multiply(M,Pos)
-                VoxX = int(Pos.X()/22); VoxY = int(Pos.Y()/22)
+                VoxX = int(Pos.X()/2.2); VoxY = int(Pos.Y()/2.2)
                 Vox = '%d,%d,%s'%(VoxX, VoxY, key)
                 if Vox not in self.voxhits:
                     self.voxhits[Vox] = []
                 self.voxhits[Vox].append(hit)
            
+    def getSigmaV(self):
+        self.SigmaVX = 0
+        self.SigmaVY = 0
+        if self.voxhits is None:
+            self.Voxelize()
+        if 1 ==1:
+            VPos = [[int(key.split(',')[0]), int(key.split(',')[1]), key.split(',')[2]] for key in self.voxhits]
+            if len(VPos) == 1:
+                self.SigmaVX = 0
+                self.SigmaVY = 0
+            else:
+                aux_arr = []
+                for i in range(0, len(VPos)-1):
+                    for j in range(i+1, len(VPos)):
+                        SigmaX = abs(VPos[j][0] - VPos[i][0]); SigmaY = abs(VPos[j][1] - VPos[i][1])
+                        aux_arr.append([SigmaX, SigmaY])
+                self.SigmaVX = max(aux_arr, key = lambda x: x[0])[0]
+                self.SigmaVY = max(aux_arr, key = lambda x: x[1])[1]
+
 
     def sortHits(self):
         output_dict = {}
@@ -120,7 +140,7 @@ class Cluster:
                 key += 'Endcap'
 
             if key == '':
-                print('What the actual hell. The key is %s. The volName is %s.'%(key, volName))
+                #print('What the actual hell. The key is %s. The volName is %s.'%(key, volName))
                 continue
 
             key += 'ECal'
@@ -139,7 +159,7 @@ class Cluster:
                     key += '_'; key+= temp_str
             
             if 'layer' not in key or 'stave' not in key:
-                print('What the actual hell. The key is %s. The volName is %s' %(key, volName))
+                #print('What the actual hell. The key is %s. The volName is %s' %(key, volName))
                 continue   
             
             if key not in output_dict:
@@ -224,9 +244,10 @@ class Cluster:
         pdg_energy = {} # map from PDG making energy deposits (i.e. electron, proton) --> energy
         par_energy = {} # map of neutral parent TID (i.e. neutron, photon) --> energy
         prim_energy = {} # map of primary parent TID --> energy
-        
+        #print('Hello') 
         self.Voxelize()
-        
+        self.getSigmaV()
+        #print(self.SigmaVX, self.SigmaVY) 
         for hit in self.hits:
             self.centroid += (hit.getEnergy() * hit.getPos()) # scale position 3-vector by energy
             self.energy += hit.getEnergy()
@@ -346,6 +367,16 @@ class Cluster:
         if self.sigmas is None:
             CalcStuff()
         return self.sigmas
+
+    def getSigmaVX(self):
+        if self.SigmaVX is None:
+            CalcStuff()
+        return self.SigmaVX
+
+    def getSigmaVY(self):
+        if self.SigmaVY is None:
+            self.CalcStuff()
+        return self.SigmaVY
 
     def getFracMaxPar(self):
         return self.energyFracPar
