@@ -125,8 +125,9 @@ class Cluster:
                     for j in range(i+1, len(VPos)):
                         SigmaX = abs(VPos[j][0] - VPos[i][0]); SigmaY = abs(VPos[j][1] - VPos[i][1])
                         aux_arr.append([SigmaX, SigmaY])
-                self.SigmaVX = max(aux_arr, key = lambda x: x[0])[0]
-                self.SigmaVY = max(aux_arr, key = lambda x: x[1])[1]
+                if len(aux_arr) >0: 
+                    self.SigmaVX = max(aux_arr, key = lambda x: x[0])[0]
+                    self.SigmaVY = max(aux_arr, key = lambda x: x[1])[1]
 
 
     def sortHits(self):

@@ -346,7 +346,7 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
         # Fill the output ntuple
         t_nCandidates[0] = 0; photon_no = 0; dumb_bool = False
         for cno, cluster in enumerate(clusters):
-            print('CNO: %d'%cno)
+            #print('CNO: %d'%cno)
             cluster.CalcStuff()
             Testing_thing = [(key, len(val)) for key,val in cluster.getVoxHits().items()]
             
@@ -370,7 +370,7 @@ def loop( events, tgeo, tree, cluster_gap = 10, verbose = False):
 
 
             t_nNcellV[t_nCandidates[0]]   = len(cluster.getVoxHits())
-            print(cluster.getSigmaVX(), cluster.getSigmaVY()) 
+            ##print(cluster.getSigmaVX(), cluster.getSigmaVY()) 
             t_SigmaVX[t_nCandidates[0]]  = int(cluster.getSigmaVX() )
             t_SigmaVY[t_nCandidates[0]]  = int(cluster.getSigmaVY())
             #t_nSigmaVZ[t_nCandidates[0]]  = 
