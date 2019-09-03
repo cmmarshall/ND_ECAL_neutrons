@@ -43,10 +43,11 @@ int main( int argc, char const *argv[] )
     TFile * tf;
     if( grid ) tf =  new TFile( Form("%s.%d.ghep.root",neutrino.c_str(),run) );
     else       tf  = new TFile( Form("%s/GENIE/%s/%s/%s.%d.ghep.root",topdir.c_str(),horn.c_str(),geometry.c_str(),neutrino.c_str(),run) );
-    TTree * gtree = (TTree*) tf->Get( "gtree" );
-
-    pot += gtree->GetWeight();
-    tf->Close();
+    if( tf ) {
+      TTree * gtree = (TTree*) tf->Get( "gtree" );
+      if( gtree ) pot += gtree->GetWeight();
+      tf->Close();
+    }
     delete tf;
   }
 
