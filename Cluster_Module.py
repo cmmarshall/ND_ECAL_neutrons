@@ -76,9 +76,10 @@ class Cluster:
         self.primary_tid = None
         self.energyFracPar = None
         self.energyFracPrim = None
-        self.sigma = None
+        self.sigmaX = None
+        self.sigmaY = None
         self.nvoxyls = 0
-        self.layers = 0
+        self.layers = []
         self.maxvoxyl = 0.
 
     def Voxelize(self):
@@ -120,31 +121,37 @@ class Cluster:
                 self.voxyls[stave_number][layer_number] = { (voxX,voxY):hit.energy }
 
     def calcSigma(self):
-        self.sigma = 0.
-        self.layers = 0
+        self.sigmaX = 0.
+        self.sigmaY = 0.
+        self.layers = []
         self.nvoxyls = 0
         self.maxvoxyl = 0.
         # loop over voxyls
         for s,stave in enumerate(self.voxyls):
-            self.layers += len(self.voxyls[s])
-            for layer_number in self.voxyls[s]:
+            for layer_number in stave:
+                self.layers.append(layer_number)
                 this_layer = self.voxyls[s][layer_number]
                 sigX = 0.
                 sigY = 0.
                 meanX = 0.
                 meanY = 0.
+                layere = 0.
                 for xy in this_layer:
                     e = this_layer[xy]
+                    layere += e
                     if e > 0.1: self.nvoxyls += 1
                     if e > self.maxvoxyl: self.maxvoxyl = e
-                    meanX += xy[0]*e/len(this_layer)
-                    meanY += xy[1]*e/len(this_layer)
+                    meanX += xy[0]*e
+                    meanY += xy[1]*e
+                meanX /= layere
+                meanY /= layere
                 for xy in this_layer:
-                    sigX += ((xy[0]-meanX)*this_layer[xy])**2/len(this_layer)
-                    sigY += ((xy[1]-meanY)*this_layer[xy])**2/len(this_layer)
-                self.sigma += (sqrt(sigX)+sqrt(sigY))/2.
-        self.sigma *= 2.2 # convert to cm
-        self.sigma /= self.layers       	
+                    sigX += ((xy[0]-meanX)*this_layer[xy])**2/layere
+                    sigY += ((xy[1]-meanY)*this_layer[xy])**2/layere
+                self.sigmaX += sigX
+                self.sigmaY += sigY
+        self.sigmaX *= 2.2/len(self.layers) # convert to cm and normalize per layer
+        self.sigmaY *= 2.2/len(self.layers)
 
     def addHit(self, hit):
         # if htis are added, cluster-level variables will be wrong
@@ -193,7 +200,6 @@ class Cluster:
         par_energy = {} # map of neutral parent TID (i.e. neutron, photon) --> energy
         prim_energy = {} # map of primary parent TID --> energy
         self.Voxelize()
-        self.calcSigma()
         for hit in self.hits:
             self.centroid += (hit.getEnergy() * hit.getPos()) # scale position 3-vector by energy
             self.energy += hit.getEnergy()
@@ -238,47 +244,28 @@ class Cluster:
                 max_prim = prim_energy[prim]
                 self.primary_tid = prim
                 self.energyFracPrim = max_prim / self.energy
+        self.calcSigma()
 
     # simple getters for the calculated things
-
-    def getVoxHits(self):
-        if self.voxhits is None:
-            CalcStuff()
-        return self.voxhits
-
     def getEnergy(self):
-        if self.energy is None:
-            CalcStuff()
         return self.energy
 
     def getTime(self):
-        if self.time is None:
-            CalcStuff()
         return self.time
 
     def getCells(self):
-        if not len(self.cells):
-            CalcStuff()
         return self.cells
 
     def getCentroid(self):
-        if self.centroid is None:
-            CalcStuff()
         return self.centroid
 
     def getTruePDG(self):
-        if self.true_pdg is None:
-            CalcStuff()
         return self.true_pdg
 
     def getTrueParent(self):
-        if self.parent_tid is None:
-            CalcStuff()
         return self.parent_tid
 
     def getPrimary(self):
-        if self.primary_tid is None:
-            CalcStuff()
         return self.primary_tid
 
     def getNcell(self):
@@ -288,9 +275,20 @@ class Cluster:
         return self.maxvoxyl
 
     def getSigma(self):
-        if self.sigma is None:
-            CalcStuff()
-        return self.sigma
+        return self.sigmaX, self.sigmaY
+
+    def getNlayers(self):
+        return len(self.layers)
+
+    def getLayerGaps(self):
+        ordered = sorted(self.layers)
+        gap = 0
+        last = ordered[0]
+        for layer in ordered:
+            if layer - last > 1:
+                gap += layer - last - 1
+            last = layer
+        return gap
 
     def getFracMaxPar(self):
         return self.energyFracPar
