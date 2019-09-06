@@ -82,7 +82,7 @@ class Cluster:
         self.layers = []
         self.maxvoxyl = 0.
 
-    def Voxelize(self):
+    def Voxylize(self):
 
         for hit in self.hits:
 
@@ -199,7 +199,7 @@ class Cluster:
         pdg_energy = {} # map from PDG making energy deposits (i.e. electron, proton) --> energy
         par_energy = {} # map of neutral parent TID (i.e. neutron, photon) --> energy
         prim_energy = {} # map of primary parent TID --> energy
-        self.Voxelize()
+        self.Voxylize()
         for hit in self.hits:
             self.centroid += (hit.getEnergy() * hit.getPos()) # scale position 3-vector by energy
             self.energy += hit.getEnergy()
