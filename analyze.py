@@ -31,9 +31,7 @@ t_nPosX = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosY = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosT = array( 'd', MAXCANDIDATES*[0.] )
-t_nSigmaX = array( 'd', MAXCANDIDATES*[0.] )
-t_nSigmaY = array( 'd', MAXCANDIDATES*[0.] )
-t_nSigmaZ = array( 'd', MAXCANDIDATES*[0.] )
+t_nSigma = array( 'd', MAXCANDIDATES*[0.] )
 t_nE = array( 'd', MAXCANDIDATES*[0.] )
 t_nIso = array( 'd', MAXCANDIDATES*[0.] )
 t_nNcell = array( 'i', MAXCANDIDATES*[0] )
@@ -42,6 +40,7 @@ t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
 t_nParTID = array('i', MAXCANDIDATES*[0])
 t_nPrimTID = array('i', MAXCANDIDATES*[0])
+
 t_pParticles = array( 'i', [0] )
 t_pTID = array( 'i', MAXNEUTRONS*[0] )
 t_pPDG = array( 'i', MAXNEUTRONS*[0] )
@@ -152,7 +151,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
 
     event = ROOT.TG4Event()
     events.SetBranchAddress("Event",ROOT.AddressOf(event))
-
+   
     N = events.GetEntries()
     for ient in range(0, N):
         events.GetEntry(ient)
@@ -162,7 +161,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         vm = info.fMemVirtual
         rm = info.fMemResident
 
-        if ient % 100 == 0:
+        if ient % 1 == 0: 
             print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
 
         t_event[0] = ient
@@ -265,8 +264,9 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
                 #----------------------------------------------------------#
                 if neutral_tid > 0: # ensure neutral parent
 
-                    node = tgeo.FindNode( edep.Start.X(), edep.Start.Y(), edep.Start.Z())
-                    this_hit = Hit(hStart, node.GetName(), edep.EnergyDeposit, edep.Start.T(), event.Trajectories[edep_tid].PDGCode, neutral_tid, primary_tid)
+                    volName = tgeo.FindNode( edep.Start.X(), edep.Start.Y(), edep.Start.Z() ).GetName()
+                    if "stave" not in volName or "layer" not in volName: continue
+                    this_hit = Hit(hStart, volName, edep.EnergyDeposit, edep.Start.T(), event.Trajectories[edep_tid].PDGCode, neutral_tid, primary_tid)
 
                     # Should this hit be added to any existing clusters?
                     # It is possible that this hit can be in multiple clusters, in which case they should be merged
@@ -305,9 +305,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         # Fill the output ntuple
         t_nCandidates[0] = 0
         for cluster in clusters:
-
             cluster.CalcStuff()
-
             cpos = cluster.getCentroid()
             t_nIso[t_nCandidates[0]] = 999999.9
             for hit in charged_hits:
@@ -317,26 +315,17 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
             t_nPosX[t_nCandidates[0]] = cpos.x()
             t_nPosY[t_nCandidates[0]] = cpos.y()
             t_nPosZ[t_nCandidates[0]] = cpos.z()
-            t_nSigmaX[t_nCandidates[0]] = cluster.getSigmas()[0]
-            t_nSigmaY[t_nCandidates[0]] = cluster.getSigmas()[1]
-            t_nSigmaZ[t_nCandidates[0]] = cluster.getSigmas()[2]
+            t_nSigma[t_nCandidates[0]] = cluster.getSigma()
             t_nPosT[t_nCandidates[0]] = cluster.getTime()
             t_nE[t_nCandidates[0]] = cluster.getEnergy()
             t_nTruePDG[t_nCandidates[0]] = cluster.getTruePDG()
             t_nParTID[t_nCandidates[0]] = cluster.getTrueParent()
             t_nPrimTID[t_nCandidates[0]] = cluster.getPrimary()
             t_nMaxCell[t_nCandidates[0]] = cluster.getMaxCell()
-            t_nNcell[t_nCandidates[0]] = cluster.getNcell(0.5)
+            t_nNcell[t_nCandidates[0]] = cluster.getNcell()
             parent = event.Trajectories[cluster.getTrueParent()]
             t_nTrueKE[t_nCandidates[0]] = parent.InitialMomentum.E() - parent.InitialMomentum.M()
-
-
             t_nCandidates[0] += 1
-
-            if t_nCandidates[0] == MAXCANDIDATES:
-                print "Event has more than maximum %d neutron candidates" % MAXCANDIDATES
-                break
-
         tree.Fill()
 
 
@@ -383,9 +372,7 @@ if __name__ == "__main__":
     tree.Branch( "nPosY", t_nPosY, "nPosY[nCandidates]/D" )
     tree.Branch( "nPosZ", t_nPosZ, "nPosZ[nCandidates]/D" )
     tree.Branch( "nPosT", t_nPosT, "nPosT[nCandidates]/D" )
-    tree.Branch( "nSigmaX", t_nSigmaX, "nSigmaX[nCandidates]/D" )
-    tree.Branch( "nSigmaY", t_nSigmaY, "nSigmaY[nCandidates]/D" )
-    tree.Branch( "nSigmaZ", t_nSigmaZ, "nSigmaZ[nCandidates]/D" )
+    tree.Branch( "nSigma", t_nSigma, "nSigma[nCandidates]/D" )
     tree.Branch( "nE", t_nE, "nE[nCandidates]/D" )
     tree.Branch( "nIso", t_nIso, "nIso[nCandidates]/D" )
     tree.Branch( "nNcell", t_nNcell, "nNcell[nCandidates]/I" )
