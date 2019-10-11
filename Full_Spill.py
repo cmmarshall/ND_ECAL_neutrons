@@ -26,23 +26,28 @@ def dist(TVec1, TVec2):
 def distFromLine( a, n, p ):
     return ((a-p) - n*((a-p).Dot(n))).Mag()
 
+def obvious_photon( cand ):
+    return cand.nNcell >= 6
+    
+def obvious_neutron( cand ):
+    return cand.nMaxCell > 6.
+
+
 def filter_cut(cans, vtx, vtx_t0):
 
     # order the neutral candidates by distance to the vertex, so that closer hits will be analyzed first
     # the first interaction will typically be the closest to the vertex
     candidates = sorted(cans, key = lambda cluster: dist(vtx, cluster.getPos()))
 
-    # Remove photon events, and events that are not physical neutrons
+    # Remove non-physical neutrons, and really low energy blips
     i = 0
     while i < len(candidates):
         can = candidates[i]
-        nCut = (can.nMaxCell > 10. or (can.nMaxCell>3. and can.nNcell <= 4))
+        #nCut = (can.nMaxCell > 10. or (can.nMaxCell>3. and can.nNcell <= 4))
         reco_KE = GetRecoE(vtx, can.getPos(), can.nPosT-vtx_t0)
-        if nCut and reco_KE is not None and reco_KE > 5.:
-            can.SetRecoNeutron()
+        if can.nE > 3. and reco_KE is not None and reco_KE > 5.:
             i += 1
         else:
-            can.SetRecoGamma()
             candidates.pop(i)
 
     # Remove candidates that are spatially close to other candidates, which often are due to multi-scatters
@@ -52,11 +57,22 @@ def filter_cut(cans, vtx, vtx_t0):
         n = (vtx-a).Unit()
         j = i+1
 
+        if obvious_neutron(candidates[i]):
+            candidates[i].SetRecoNeutron()
+        elif obvious_photon(candidates[i]):
+            candidates[i].SetRecoGamma()
+
         while j < len(candidates):
             distance = distFromLine( a, n, candidates[j].getPos() )
             distance2 = dist(a,candidates[j].getPos())
             if distance < 50. or distance2 < 50:
-                candidates[i].UpCylinder()
+                candidates[i].UpCylinder(candidates[j].nNcell, candidates[j].nE)
+                if obvious_photon(candidates[j]) and not candidates[i].RecoNeutron:
+                    candidates[i].SetRecoGamma()
+                elif obvious_neutron(candidates[j]) and not candidates[i].RecoGamma:
+                    candidates[i].SetRecoNeutron()
+                elif obvious_photon(candidates[j]) or obvious_neutron(candidates[j]):
+                    candidates[i].SetRecoWTF()
                 candidates.pop(j)
             else:
                 j += 1
@@ -107,8 +123,8 @@ def isVeto( veto_time_vtx, cand ):
             return True
 
         # velocity between 10 and 30 cm/ns, i.e. beta between 0.3 and 1
-        if dt > 0 and d/dt > 10. and d/dt < 30.:
-            return True
+        #if dt > 0 and d/dt > 10. and d/dt < 30.:
+        #    return True
 
     return False
 
@@ -142,6 +158,14 @@ def Initialize_Plot_Dict(h_dict):
 
     h_dict["depth"] = {}
     h_dict["kink"] = {}
+    h_dict["cell_max"] = {}
+    h_dict["cell_n"] = {}
+    h_dict["max_n"] = {}
+    h_dict["cell_gaps"] = {}
+    h_dict["cell_sigmas"] = {}
+    h_dict["n_cylinder"] = {}
+    h_dict["cell_layers"] = {}
+    h_dict["odvies"] = {}
 
     for cat in cats:
         h_dict["reco"][cat] = {}
@@ -160,6 +184,14 @@ def Initialize_Plot_Dict(h_dict):
         h_dict["depth"][cat] = ROOT.TH1D( "depth_%s" % cat, ";Depth (cm)", 100, 0., 100. )
         h_dict["kink"][cat] = ROOT.TH1D( "kink_%s" % cat, ";Kink angle (deg)", 90, 0., 180. )
 
+        h_dict["cell_max"][cat] = ROOT.TH2D( "cell_max_%s" % cat, ";Cluster energy (MeV);Max cell (MeV)", 100, 0., 100., 100, 0., 100. )
+        h_dict["cell_n"][cat] = ROOT.TH2D( "cell_n_%s" % cat, ";Cluster energy (MeV);N cells", 100, 0., 100., 100, 0., 100. )
+        h_dict["max_n"][cat] = ROOT.TH2D( "max_n_%s" % cat, ";Max cell (MeV);N cells", 100, 0., 20., 20, 0., 20. )
+        h_dict["cell_gaps"][cat] = ROOT.TH2D( "cell_gaps_%s" % cat, ";Cluster energy (MeV);Gaps", 100, 0., 100., 30, 0., 30. )
+        h_dict["cell_sigmas"][cat] = ROOT.TH2D( "cell_sigmas_%s" % cat, ";Cluster sigmaX;Cluster sigmaY", 100, 0., 1., 100, 0., 1. )
+        h_dict["n_cylinder"][cat] = ROOT.TH2D( "n_cylinder_%s" % cat, ";Cylinder energy (MeV);Number in cylinder", 100, 0., 100., 100, 0., 100. )
+        h_dict["cell_layers"][cat] = ROOT.TH2D( "cell_layers_%s" % cat, ";N cell;N layers", 20, 0., 20., 20, 0., 20. )
+        h_dict["odvies"][cat] = ROOT.TH1D( "odvies_%s" % cat, ";0=n 1=g 2=neither", 4, 0., 4. )
 
     for cut in cuts:
         h_dict["eff"][cut] = ROOT.TH2D( "eff_%s" % cut, ";Reco angle (deg);True neutron KE (MeV)", 36, 0., 180., 70, 0., 700. )
@@ -208,10 +240,10 @@ def candidateLoop( h_dict, candidates, source, spill_info ):
         reco_angle = 57.29577951308232 * (np-vtx).Angle(beam_dir)
 
         # remove super-luminal neutrons, or neutrons so delayed w.r.t. neutrino that they have very low reco energy
-        if reco_KE is None or reco_KE < 50.: continue
+        if reco_KE is None or reco_KE < 5.: continue
 
         # Cuts
-        passGamma = cand.RecoNeutron
+        passGamma = cand.RecoNeutron or (cand.nNcell < 5.*(cand.nMaxCell-4.))
         passCyl = (not inChargedCylinder(cylinders, cand))
         passVeto = (not isVeto(veto_time_vtx, cand))
 
@@ -251,6 +283,19 @@ def candidateLoop( h_dict, candidates, source, spill_info ):
             cat = "%sn" % source
             if not true_neutron:
                 cat = "%sg" % source
+
+        h_dict["cell_max"][cat].Fill( cand.nE, cand.nMaxCell )
+        h_dict["cell_n"][cat].Fill( cand.nE, cand.nNcell )
+        h_dict["max_n"][cat].Fill( cand.nMaxCell, cand.nNcell )
+        h_dict["cell_gaps"][cat].Fill( cand.nE, cand.nGaps )
+        h_dict["cell_sigmas"][cat].Fill( cand.nSigmaX, cand.nSigmaY )
+        h_dict["n_cylinder"][cat].Fill( cand.eCylinder, cand.nCylinder )
+        h_dict["cell_layers"][cat].Fill( cand.nNcell, cand.nNlayers )
+
+        if cand.RecoNeutron and not cand.RecoGamma: h_dict["odvies"][cat].Fill(0)
+        elif cand.RecoGamma and not cand.RecoNeutron: h_dict["odvies"][cat].Fill(1)
+        elif not cand.RecoGamma and not cand.RecoNeutron: h_dict["odvies"][cat].Fill(2)
+        else: h_dict["odvies"][cat].Fill(3)
 
         # Fill reconstruction histograms
         h_dict["reco"][cat]["none"].Fill( reco_angle, reco_KE )
@@ -474,9 +519,9 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option('--outfile', help='Output File Name', default='FSout.root')
     parser.add_option('--topdir', help='Directory containing Input', default='/pnfs/dune/persistent/users/marshalc/neutronSim/ntuple')
-    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='outGArTPCv6.root')
-    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='outRockv4.root')
-    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='outDetEnclosurev4.root')
+    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='outGArTPCv7.root')
+    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='outRockv5.root')
+    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='outDetEnclosurev5.root')
     parser.add_option('--Emin', type=float, help='Energy Threshhold for Neutron Candidates', default= 5)
     parser.add_option('--dt', type=float, help='Time Resolution of our Detector', default=0.7)
     parser.add_option('--spill_pot', type=float, help='POT per spill', default=7.5E13)

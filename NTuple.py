@@ -24,10 +24,11 @@ t_nPosZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nPosT = array( 'd', MAXCANDIDATES*[0.] )
 t_nSigmaX = array( 'd', MAXCANDIDATES*[0.] )
 t_nSigmaY = array( 'd', MAXCANDIDATES*[0.] )
-t_nSigmaZ = array( 'd', MAXCANDIDATES*[0.] )
 t_nE = array( 'd', MAXCANDIDATES*[0.] )
 t_nIso = array( 'd', MAXCANDIDATES*[0.] )
 t_nNcell = array( 'i', MAXCANDIDATES*[0] )
+t_nNlayers = array( 'i', MAXCANDIDATES*[0] )
+t_nGaps = array( 'i', MAXCANDIDATES*[0] )
 t_nMaxCell = array( 'd', MAXCANDIDATES*[0.] )
 t_nTruePDG = array( 'i', MAXCANDIDATES*[0] )
 t_nTrueKE = array( 'd', MAXCANDIDATES*[0.] )
@@ -64,11 +65,12 @@ def setBranches( tree ):
     tree.SetBranchAddress( "nPosT", t_nPosT )
     tree.SetBranchAddress( "nSigmaX", t_nSigmaX )
     tree.SetBranchAddress( "nSigmaY", t_nSigmaY )
-    tree.SetBranchAddress( "nSigmaZ", t_nSigmaZ )
     tree.SetBranchAddress( "nE", t_nE )
     tree.SetBranchAddress( "nIso", t_nIso )
     tree.SetBranchAddress( "nNcell", t_nNcell )
     tree.SetBranchAddress( "nMaxCell", t_nMaxCell )
+    tree.SetBranchAddress( "nNlayers", t_nNlayers )
+    tree.SetBranchAddress( "nGaps", t_nGaps )
     tree.SetBranchAddress( "nTruePDG", t_nTruePDG )
     tree.SetBranchAddress( "nTrueKE", t_nTrueKE )
     tree.SetBranchAddress( "nParTID", t_nParTID )
@@ -93,11 +95,12 @@ class Candidate:
         self.nPosT = t_nPosT[idx]
         self.nSigmaX = t_nSigmaX[idx]
         self.nSigmaY = t_nSigmaY[idx]
-        self.nSigmaZ = t_nSigmaZ[idx]
         self.nE = t_nE[idx]
         self.nIso = t_nIso[idx]
         self.nNcell = t_nNcell[idx]
         self.nMaxCell = t_nMaxCell[idx]
+        self.nNlayers = t_nNlayers[idx]
+        self.nGaps = t_nGaps[idx]
         self.nTruePDG = t_nTruePDG[idx]
         self.nTrueKE = t_nTrueKE[idx]
         self.nParTID = t_nParTID[idx]
@@ -107,6 +110,7 @@ class Candidate:
         self.RecoGamma = False
         self.RecoNeutron = False
         self.nCylinder = 0
+        self.eCylinder = 0.
         self.inNeutronCylinder = False
         self.inGammaCylinder = False
 
@@ -126,14 +130,18 @@ class Candidate:
 
         return ret
 
-    def UpCylinder(self):
-        self.nCylinder += 1
+    def UpCylinder(self, n, e):
+        self.nCylinder += n
+        self.eCylinder += e
 
     def SetRecoGamma(self):
         self.RecoGamma = True
         self.RecoNeutron = False
     def SetRecoNeutron(self):
         self.RecoGamma = False
+        self.RecoNeutron = True
+    def SetRecoWTF(self):
+        self.RecoGamma = True
         self.RecoNeutron = True
 
 
