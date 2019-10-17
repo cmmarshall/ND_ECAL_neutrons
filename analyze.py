@@ -164,7 +164,7 @@ def loop( events, tgeo, tree, cluster_gap = 10 ):
         vm = info.fMemVirtual
         rm = info.fMemResident
 
-        if ient % 1 == 0: 
+        if ient % 1000 == 0: 
             print "Event %d of %d, VM = %1.2f MB, RM = %1.2f MB" % (ient,N,vm/1000.,rm/1000.)
 
         t_event[0] = ient

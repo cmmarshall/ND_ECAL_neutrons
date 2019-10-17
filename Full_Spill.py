@@ -348,6 +348,11 @@ def candidateLoop( h_dict, candidates, source, spill_info ):
                             leading_reco_cat[4] = cat
                             leading_reco_angle[4] = reco_angle
 
+    # if the neutron that ends up being "leading" is duplicated, still count it as signal
+    for i,cut in enumerate(cuts):
+        if leading_reco_cat[i] == "duplicate":
+            leading_reco_cat[i] = "signal"
+
     return leading_reco_KE, leading_reco_cat, leading_reco_angle
 
 def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None, write=None, outfile=None):
@@ -517,11 +522,11 @@ def loop(GTree, RTree, HTree, Emin, dt, muRock, muHall, Plot_dict, Ngas=None, wr
 if __name__ == "__main__":
 
     parser = OptionParser()
-    parser.add_option('--outfile', help='Output File Name', default='FSout.root')
+    parser.add_option('--outfile', help='Output File Name', default='FSoutRHC.root')
     parser.add_option('--topdir', help='Directory containing Input', default='/pnfs/dune/persistent/users/marshalc/neutronSim/ntuple')
-    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='outGArTPCv7.root')
-    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='outRockv5.root')
-    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='outDetEnclosurev5.root')
+    parser.add_option('--Gfile_str', help='Input Files for Gas Argon File String', default='outRHC_GArTPC.root')
+    parser.add_option('--Rfile_str', help='Input Files for Rock File String', default='outRHC_rock.root')
+    parser.add_option('--Hfile_str', help='Input Files for Hall File String', default='outRHC_DetEnclosure.root')
     parser.add_option('--Emin', type=float, help='Energy Threshhold for Neutron Candidates', default= 5)
     parser.add_option('--dt', type=float, help='Time Resolution of our Detector', default=0.7)
     parser.add_option('--spill_pot', type=float, help='POT per spill', default=7.5E13)
